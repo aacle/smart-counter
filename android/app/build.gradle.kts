@@ -7,8 +7,8 @@ plugins {
 
 android {
     namespace = "com.smartnaamjap.smrt_counter"
-    compileSdk = 35
-    ndkVersion = "27.0.12077973"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -22,8 +22,8 @@ android {
 
     defaultConfig {
         applicationId = "com.smartnaamjap.smrt_counter"
-        minSdk = 24
-        targetSdk = 35
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
