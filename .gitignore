@@ -1,0 +1,116 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+/coverage/
+pubspec.lock
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Android specific
+/android/.gradle/
+/android/.kotlin/
+/android/build/
+/android/app/build/
+/android/local.properties
+*.jks
+*.keystore
+key.properties
+/android/app/google-services.json
+
+# iOS specific
+/ios/.symlinks/
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/engine/
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/app.flx
+/ios/Flutter/flutter_assets/
+/ios/Pods/
+/ios/Podfile.lock
+/ios/Runner.xcworkspace/
+/ios/.generated/
+/ios/Flutter/ephemeral/
+*.xcuserstate
+*.xcscmblueprint
+
+# macOS specific
+/macos/Flutter/ephemeral/
+/macos/Pods/
+/macos/Podfile.lock
+
+# Linux specific
+/linux/flutter/ephemeral/
+
+# Windows specific
+/windows/flutter/ephemeral/
+
+# Web specific
+/web/.dart_tool/
+
+# Test related
+coverage/
+*.lcov
+.test_coverage/
+
+# Environment files (IMPORTANT - contains secrets!)
+.env
+.env.*
+*.env
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+*.gr.dart
+
+# Firebase
+/android/app/google-services.json
+/ios/Runner/GoogleService-Info.plist
+/ios/firebase_app_id_file.json
+firebase_options.dart
+
+# Recordings/Media (custom folder)
+/chant/
+
+# Custom project files (if any)
+*.sqlite
+*.db

@@ -1,0 +1,85 @@
+name: smrt_counter
+description: "Smart Naam Jap 2.0 - Distraction-free spiritual counter for chanting meditation"
+publish_to: 'none'
+version: 2.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State Management
+  flutter_riverpod: ^2.6.1
+  
+  # Local Database (Offline-first)
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # Haptic Feedback
+  vibration: ^2.0.0
+  
+  # Sensors
+  sensors_plus: ^6.1.1
+  
+  # Volume Control
+  volume_controller: ^2.0.7
+  
+  # UI Enhancements
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.2
+  
+  # Storage
+  shared_preferences: ^2.3.5
+  
+  # Icons
+  cupertino_icons: ^1.0.8
+  
+  # Screen Wake Lock
+  wakelock_plus: ^1.2.10
+  
+  # Screen Time Usage (Android)
+  app_usage: ^4.0.0
+  
+  # Local Notifications (Reminders)
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+  
+  # Audio Recording & Playback
+  flutter_sound: ^9.16.3
+  path_provider: ^2.1.5
+  permission_handler: ^11.3.1
+  
+  # Background Alarms (works even when app is closed)
+  android_alarm_manager_plus: ^4.0.4
+  
+  # Home Screen Widgets
+  home_widget: ^0.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.2
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#hex_code"
+    theme_color: "#hex_code"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 48 # min:48, max:256, default: 48
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+
+flutter:
+  uses-material-design: true
