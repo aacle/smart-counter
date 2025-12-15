@@ -287,10 +287,8 @@ class InsightsNotifier extends StateNotifier<InsightsState> {
       lastActiveDate: newLastActive,
     );
     
-    // Save periodically
-    if (updatedStats.counts % 10 == 0) {
-      await _saveData();
-    }
+    // Save on every count to prevent data loss
+    await _saveData();
     
     // Update home widget periodically (every 5 counts)
     if (updatedStats.counts % 5 == 0) {

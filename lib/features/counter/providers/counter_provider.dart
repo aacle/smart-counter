@@ -54,7 +54,36 @@ class CounterNotifier extends StateNotifier<CounterState> {
       final stateJson = prefs.getString('counter_state');
       if (stateJson != null) {
         final json = jsonDecode(stateJson) as Map<String, dynamic>;
-        state = CounterState.fromJson(json);
+        final loadedState = CounterState.fromJson(json);
+        
+        // Check if session is from a previous day
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final sessionDate = DateTime(
+          loadedState.sessionStartTime.year,
+          loadedState.sessionStartTime.month,
+          loadedState.sessionStartTime.day,
+        );
+        
+        if (sessionDate.isBefore(today)) {
+          // Session is from a previous day - save to lifetime stats and reset
+          if (loadedState.count > 0) {
+            final currentLifetimeCounts = prefs.getInt('lifetime_counts') ?? 0;
+            final currentLifetimeMalas = prefs.getInt('lifetime_malas') ?? 0;
+            final currentLifetimeSessions = prefs.getInt('lifetime_sessions') ?? 0;
+            
+            await prefs.setInt('lifetime_counts', currentLifetimeCounts + loadedState.count);
+            await prefs.setInt('lifetime_malas', currentLifetimeMalas + loadedState.sessionMalas);
+            await prefs.setInt('lifetime_sessions', currentLifetimeSessions + 1);
+          }
+          
+          // Start fresh for today
+          state = CounterState.initial();
+          await _saveState();
+        } else {
+          // Same day - restore the session
+          state = loadedState;
+        }
       }
     } catch (e) {
       // If loading fails, start fresh

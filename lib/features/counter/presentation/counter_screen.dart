@@ -169,6 +169,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.paused) {
       ref.read(counterProvider.notifier).saveNow();
+      ref.read(insightsProvider.notifier).saveNow();
       _stopAutoCount();
     }
   }
@@ -543,6 +544,11 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
 
   /// Mala-wise interface - shows 108 bead circle prominently
   Widget _buildMalaWiseContent(counterState, settings) {
+    // Reduce size when banner is shown to prevent overflow
+    final beadSize = _goalMissInfo != null
+        ? MediaQuery.of(context).size.height * 0.28
+        : MediaQuery.of(context).size.height * 0.35;
+    
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -550,7 +556,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
         MalaBeads(
           currentCount: counterState.count,
           showCelebration: _showCelebration,
-          size: MediaQuery.of(context).size.height * 0.35,
+          size: beadSize,
         ),
         
         const SizedBox(height: 16),
@@ -571,6 +577,11 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
 
   /// Count-wise interface - shows total count prominently
   Widget _buildCountWiseContent(counterState, settings) {
+    // Reduce size when banner is shown to prevent overflow
+    final beadSize = _goalMissInfo != null
+        ? MediaQuery.of(context).size.height * 0.18
+        : MediaQuery.of(context).size.height * 0.22;
+    
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -578,7 +589,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
         MalaBeads(
           currentCount: counterState.count,
           showCelebration: _showCelebration,
-          size: MediaQuery.of(context).size.height * 0.22,
+          size: beadSize,
         ),
         
         const SizedBox(height: 24),
