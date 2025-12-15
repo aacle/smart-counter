@@ -47,11 +47,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build APK & AAB (Release)
-        run: |
-          flutter build apk --release &
-          flutter build appbundle --release &
-          wait
+      - name: Build APK (Release)
+        run: flutter build apk --release
+
+      - name: Build App Bundle (Release)
+        run: flutter build appbundle --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
