@@ -1,12 +1,27 @@
 import 'package:flutter/foundation.dart';
 
+/// Type of daily goal - either malas or individual chant counts
+enum GoalType {
+  malas,
+  counts,
+}
+
+/// Interface mode for counter screen display
+enum InterfaceMode {
+  malaWise,   // Shows mala beads with X of 108 progress
+  countWise,  // Shows total count prominently
+}
+
 /// Immutable state for app settings
 @immutable
 class SettingsState {
   final bool hapticEnabled;
   final bool volumeRockerEnabled;
   final bool keepScreenAwake;
-  final int dailyGoal;
+  final int dailyGoal;  // Daily goal in malas
+  final int dailyGoalCount;  // Daily goal in chant counts
+  final GoalType goalType;  // Which type of goal is active
+  final InterfaceMode interfaceMode;  // Counter screen display mode
   
   // Reminder settings
   final bool reminderEnabled;
@@ -30,6 +45,9 @@ class SettingsState {
     required this.volumeRockerEnabled,
     required this.keepScreenAwake,
     required this.dailyGoal,
+    required this.dailyGoalCount,
+    required this.goalType,
+    required this.interfaceMode,
     required this.reminderEnabled,
     required this.reminderIntervalMinutes,
     required this.activeTimeSlots,
@@ -45,6 +63,9 @@ class SettingsState {
       volumeRockerEnabled: true,
       keepScreenAwake: false,
       dailyGoal: 0,
+      dailyGoalCount: 0,
+      goalType: GoalType.malas,
+      interfaceMode: InterfaceMode.malaWise,
       reminderEnabled: false,
       reminderIntervalMinutes: 30,
       activeTimeSlots: [0, 1, 2, 3, 4], // 6am to 9pm by default
@@ -60,6 +81,9 @@ class SettingsState {
     bool? volumeRockerEnabled,
     bool? keepScreenAwake,
     int? dailyGoal,
+    int? dailyGoalCount,
+    GoalType? goalType,
+    InterfaceMode? interfaceMode,
     bool? reminderEnabled,
     int? reminderIntervalMinutes,
     List<int>? activeTimeSlots,
@@ -74,6 +98,9 @@ class SettingsState {
       volumeRockerEnabled: volumeRockerEnabled ?? this.volumeRockerEnabled,
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
       dailyGoal: dailyGoal ?? this.dailyGoal,
+      dailyGoalCount: dailyGoalCount ?? this.dailyGoalCount,
+      goalType: goalType ?? this.goalType,
+      interfaceMode: interfaceMode ?? this.interfaceMode,
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       reminderIntervalMinutes: reminderIntervalMinutes ?? this.reminderIntervalMinutes,
       activeTimeSlots: activeTimeSlots ?? this.activeTimeSlots,
@@ -90,6 +117,9 @@ class SettingsState {
       'volumeRockerEnabled': volumeRockerEnabled,
       'keepScreenAwake': keepScreenAwake,
       'dailyGoal': dailyGoal,
+      'dailyGoalCount': dailyGoalCount,
+      'goalType': goalType.name,
+      'interfaceMode': interfaceMode.name,
       'reminderEnabled': reminderEnabled,
       'reminderIntervalMinutes': reminderIntervalMinutes,
       'activeTimeSlots': activeTimeSlots,
@@ -106,6 +136,15 @@ class SettingsState {
       volumeRockerEnabled: json['volumeRockerEnabled'] as bool? ?? true,
       keepScreenAwake: json['keepScreenAwake'] as bool? ?? false,
       dailyGoal: json['dailyGoal'] as int? ?? 0,
+      dailyGoalCount: json['dailyGoalCount'] as int? ?? 0,
+      goalType: GoalType.values.firstWhere(
+        (e) => e.name == json['goalType'],
+        orElse: () => GoalType.malas,
+      ),
+      interfaceMode: InterfaceMode.values.firstWhere(
+        (e) => e.name == json['interfaceMode'],
+        orElse: () => InterfaceMode.malaWise,
+      ),
       reminderEnabled: json['reminderEnabled'] as bool? ?? false,
       reminderIntervalMinutes: json['reminderIntervalMinutes'] as int? ?? 30,
       activeTimeSlots: (json['activeTimeSlots'] as List<dynamic>?)
@@ -125,6 +164,9 @@ class SettingsState {
         other.volumeRockerEnabled == volumeRockerEnabled &&
         other.keepScreenAwake == keepScreenAwake &&
         other.dailyGoal == dailyGoal &&
+        other.dailyGoalCount == dailyGoalCount &&
+        other.goalType == goalType &&
+        other.interfaceMode == interfaceMode &&
         other.reminderEnabled == reminderEnabled &&
         other.reminderIntervalMinutes == reminderIntervalMinutes &&
         listEquals(other.activeTimeSlots, activeTimeSlots) &&
@@ -141,6 +183,9 @@ class SettingsState {
       volumeRockerEnabled,
       keepScreenAwake,
       dailyGoal,
+      dailyGoalCount,
+      goalType,
+      interfaceMode,
       reminderEnabled,
       reminderIntervalMinutes,
       Object.hashAll(activeTimeSlots),

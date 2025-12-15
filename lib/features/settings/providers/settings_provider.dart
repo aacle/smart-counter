@@ -59,6 +59,21 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await _saveSettings();
   }
 
+  Future<void> setDailyGoalCount(int count) async {
+    state = state.copyWith(dailyGoalCount: count);
+    await _saveSettings();
+  }
+
+  Future<void> setGoalType(GoalType type) async {
+    state = state.copyWith(goalType: type);
+    await _saveSettings();
+  }
+
+  Future<void> setInterfaceMode(InterfaceMode mode) async {
+    state = state.copyWith(interfaceMode: mode);
+    await _saveSettings();
+  }
+
   Future<void> setReminderEnabled(bool enabled) async {
     state = state.copyWith(reminderEnabled: enabled);
     await _saveSettings();

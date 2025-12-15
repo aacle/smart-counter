@@ -13,6 +13,7 @@ import '../providers/counter_provider.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../settings/presentation/reminder_setup_screen.dart';
 import '../../settings/providers/settings_provider.dart';
+import '../../settings/domain/settings_state.dart';
 import '../../insights/presentation/insights_screen.dart';
 import '../../insights/providers/insights_provider.dart';
 import 'widgets/mala_beads.dart';
@@ -312,73 +313,9 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
               child: GestureDetector(
                 onTap: _isAutoCountActive ? null : _onCount,
                 behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Animated mala beads - responsive size
-                    MalaBeads(
-                      currentCount: counterState.count,
-                      showCelebration: _showCelebration,
-                      size: MediaQuery.of(context).size.height * 0.35,
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Main Counter Display
-                    CounterDisplay(
-                      count: counterState.count,
-                      malasCompleted: counterState.sessionMalas,
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Tap instruction or Auto mode indicator
-                    if (_isAutoCountActive)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.autorenew,
-                              size: 18,
-                              color: AppColors.success,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Auto Mode Active',
-                              style: TextStyle(
-                                color: AppColors.success,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.touch_app,
-                            size: 20,
-                            color: AppColors.textMuted.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Tap to count',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.textMuted,
-                                ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
+                child: settings.interfaceMode == InterfaceMode.malaWise
+                    ? _buildMalaWiseContent(counterState, settings)
+                    : _buildCountWiseContent(counterState, settings),
               ),
             ),
 
@@ -534,6 +471,111 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
           ),
         ),
       ),
+    );
+  }
+
+  /// Mala-wise interface - shows 108 bead circle prominently
+  Widget _buildMalaWiseContent(counterState, settings) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Animated mala beads - responsive size
+        MalaBeads(
+          currentCount: counterState.count,
+          showCelebration: _showCelebration,
+          size: MediaQuery.of(context).size.height * 0.35,
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Main Counter Display
+        CounterDisplay(
+          count: counterState.count,
+          malasCompleted: counterState.sessionMalas,
+          interfaceMode: InterfaceMode.malaWise,
+        ),
+        
+        const SizedBox(height: 16),
+        
+        _buildTapInstruction(),
+      ],
+    );
+  }
+
+  /// Count-wise interface - shows total count prominently
+  Widget _buildCountWiseContent(counterState, settings) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Smaller mala beads or just a progress indicator
+        MalaBeads(
+          currentCount: counterState.count,
+          showCelebration: _showCelebration,
+          size: MediaQuery.of(context).size.height * 0.22,
+        ),
+        
+        const SizedBox(height: 24),
+        
+        // Main Counter Display - count-wise style
+        CounterDisplay(
+          count: counterState.count,
+          malasCompleted: counterState.sessionMalas,
+          interfaceMode: InterfaceMode.countWise,
+        ),
+        
+        const SizedBox(height: 16),
+        
+        _buildTapInstruction(),
+      ],
+    );
+  }
+
+  /// Common tap instruction widget
+  Widget _buildTapInstruction() {
+    if (_isAutoCountActive) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.autorenew,
+              size: 18,
+              color: AppColors.success,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Auto Mode Active',
+              style: TextStyle(
+                color: AppColors.success,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.touch_app,
+          size: 20,
+          color: AppColors.textMuted.withValues(alpha: 0.5),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'Tap to count',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.textMuted,
+          ),
+        ),
+      ],
     );
   }
 }
