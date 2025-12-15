@@ -45,9 +45,7 @@ dependencies:
   # Local Notifications (Reminders)
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
-  
-  # Audio Recording & Playback
-  flutter_sound: ^9.16.3
+  # File paths & Permissions
   path_provider: ^2.1.5
   permission_handler: ^11.3.1
   
