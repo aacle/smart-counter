@@ -24,24 +24,14 @@ class CounterDisplay extends StatefulWidget {
 class _CounterDisplayState extends State<CounterDisplay>
     with SingleTickerProviderStateMixin {
   late AnimationController _breathingController;
-  int _previousCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _previousCount = widget.count;
     _breathingController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat(reverse: true);
-  }
-
-  @override
-  void didUpdateWidget(CounterDisplay oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.count != widget.count) {
-      _previousCount = oldWidget.count;
-    }
   }
 
   @override

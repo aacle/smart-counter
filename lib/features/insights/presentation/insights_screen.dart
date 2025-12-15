@@ -22,7 +22,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Duration? _todayScreenTime;
-  Duration? _weekScreenTime;
   bool _screenTimeLoading = true;
   bool _hasUsagePermission = true;
 
@@ -43,25 +42,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
     try {
       final now = DateTime.now();
       final todayStart = DateTime(now.year, now.month, now.day);
-      final weekStart = todayStart.subtract(const Duration(days: 7));
 
       final todayUsage = await AppUsage().getAppUsage(todayStart, now);
-      final weekUsage = await AppUsage().getAppUsage(weekStart, now);
 
       Duration todayTotal = Duration.zero;
       for (var app in todayUsage) {
         todayTotal += app.usage;
       }
 
-      Duration weekTotal = Duration.zero;
-      for (var app in weekUsage) {
-        weekTotal += app.usage;
-      }
-
       if (mounted) {
         setState(() {
           _todayScreenTime = todayTotal;
-          _weekScreenTime = weekTotal;
           _hasUsagePermission = true;
           _screenTimeLoading = false;
         });
@@ -188,13 +179,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.primary.withOpacity(0.15),
-            AppColors.secondary.withOpacity(0.1),
+            AppColors.primary.withValues(alpha: 0.15),
+            AppColors.secondary.withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.primary.withOpacity(0.3),
+          color: AppColors.primary.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -229,7 +220,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
               Container(
                 width: 1,
                 height: 50,
-                color: AppColors.primary.withOpacity(0.3),
+                color: AppColors.primary.withValues(alpha: 0.3),
               ),
               _buildHeroStat(
                 context,
@@ -306,7 +297,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withOpacity(0.2),
+                      color: AppColors.success.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -372,7 +363,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isOnFire
-              ? AppColors.secondary.withOpacity(0.5)
+              ? AppColors.secondary.withValues(alpha: 0.5)
               : Colors.transparent,
           width: 1,
         ),
@@ -383,7 +374,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isOnFire
-                  ? AppColors.secondary.withOpacity(0.2)
+                  ? AppColors.secondary.withValues(alpha: 0.2)
                   : AppColors.surface,
               borderRadius: BorderRadius.circular(14),
             ),
@@ -1143,7 +1134,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -1263,7 +1254,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.redAccent.withOpacity(0.3),
+          color: Colors.redAccent.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -1275,7 +1266,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.redAccent.withOpacity(0.15),
+                  color: Colors.redAccent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.phone_android, color: Colors.redAccent, size: 18),
@@ -1401,10 +1392,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           width: 1,
         ),
       ),

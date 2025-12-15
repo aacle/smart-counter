@@ -16,6 +16,10 @@ import '../../settings/providers/settings_provider.dart';
 import '../../settings/domain/settings_state.dart';
 import '../../insights/presentation/insights_screen.dart';
 import '../../insights/providers/insights_provider.dart';
+import '../../insights/presentation/widgets/weekly_report_dialog.dart';
+import '../../insights/presentation/widgets/goal_miss_banner.dart';
+import '../../insights/presentation/widgets/goal_celebration_dialog.dart';
+import '../../../services/report_service.dart';
 import 'widgets/mala_beads.dart';
 import 'widgets/counter_display.dart';
 import 'widgets/session_stats.dart';
@@ -42,6 +46,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   Duration _sessionDuration = Duration.zero;
   bool _showCelebration = false;
   bool _isAutoCountActive = false;
+  bool _goalCelebratedToday = false;
+  GoalMissInfo? _goalMissInfo;
 
   @override
   void initState() {
@@ -70,7 +76,101 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = ref.read(settingsProvider);
       _applySettings(settings);
+      _checkForReports();
     });
+  }
+
+  /// Check for pending reports to show
+  Future<void> _checkForReports() async {
+    final settings = ref.read(settingsProvider);
+    final insights = ref.read(insightsProvider);
+    final reportService = ReportService.instance;
+    
+    // Priority: Monthly > Weekly > Goal Miss
+    
+    // Check monthly report (priority)
+    if (settings.monthlyReportEnabled && await reportService.shouldShowMonthlyReport()) {
+      final last7Days = insights.getStatsForDays(7);
+      if (last7Days.any((d) => d.counts > 0)) {
+        _showWeeklyReportDialog();
+        await reportService.markMonthlyReportShown();
+        return;
+      }
+    }
+    
+    // Check weekly report
+    if (settings.weeklyReportEnabled && await reportService.shouldShowWeeklyReport()) {
+      final last7Days = insights.getStatsForDays(7);
+      if (last7Days.any((d) => d.counts > 0)) {
+        _showWeeklyReportDialog();
+        await reportService.markWeeklyReportShown();
+        return;
+      }
+    }
+    
+    // Check goal miss
+    if (settings.goalMissNotificationEnabled && await reportService.shouldShowGoalMissNotification()) {
+      final last7Days = insights.getStatsForDays(7);
+      final missInfo = reportService.checkYesterdayGoal(last7Days, settings);
+      if (missInfo != null) {
+        setState(() {
+          _goalMissInfo = missInfo;
+        });
+      }
+      await reportService.markGoalMissChecked();
+    }
+  }
+
+  void _showWeeklyReportDialog() {
+    final settings = ref.read(settingsProvider);
+    final insights = ref.read(insightsProvider);
+    final reportService = ReportService.instance;
+    final last7Days = insights.getStatsForDays(7);
+    final reportData = reportService.generateWeeklyReport(last7Days, settings);
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WeeklyReportDialog(
+        reportData: reportData,
+        onDismiss: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  void _checkAndShowGoalCelebration() {
+    if (_goalCelebratedToday) return;
+    
+    final settings = ref.read(settingsProvider);
+    if (!settings.goalAchievementCelebrationEnabled) return;
+    
+    final insights = ref.read(insightsProvider);
+    
+    final bool isCountGoal = settings.goalType == GoalType.counts;
+    final int goalValue = isCountGoal ? settings.dailyGoalCount : settings.dailyGoal;
+    
+    if (goalValue <= 0) return;
+    
+    final todayStats = insights.todayStats;
+    final currentValue = isCountGoal ? todayStats.counts : todayStats.malas;
+    
+    if (currentValue >= goalValue) {
+      setState(() {
+        _goalCelebratedToday = true;
+      });
+      
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => GoalCelebrationDialog(
+          achieved: currentValue,
+          goal: goalValue,
+          isCountGoal: isCountGoal,
+          currentStreak: insights.currentStreak,
+          onDismiss: () => Navigator.pop(context),
+        ),
+      );
+    }
   }
 
   void _applySettings(settings) {
@@ -155,6 +255,9 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     if (newMalas > currentMalas) {
       _showMalaCelebration();
     }
+    
+    // Check if goal was just achieved
+    _checkAndShowGoalCelebration();
   }
 
   void _onAutoCount() {
@@ -208,13 +311,6 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
       context,
       MaterialPageRoute(builder: (context) => const ReminderSetupScreen()),
     );
-  }
-
-  String _formatInterval(int minutes) {
-    if (minutes >= 60) {
-      return '${minutes ~/ 60}h';
-    }
-    return '${minutes}m';
   }
 
   void _onResetTap() {
@@ -307,6 +403,17 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
                 ],
               ),
             ),
+
+            // Goal miss banner (if applicable)
+            if (_goalMissInfo != null)
+              GoalMissBanner(
+                info: _goalMissInfo!,
+                onDismiss: () {
+                  setState(() {
+                    _goalMissInfo = null;
+                  });
+                },
+              ),
 
             // Main tappable area with mala beads
             Expanded(

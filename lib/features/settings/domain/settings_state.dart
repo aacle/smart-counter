@@ -40,6 +40,12 @@ class SettingsState {
   final bool autoCountEnabled;
   final double autoCountSpeed;
   
+  // Report and notification settings
+  final bool weeklyReportEnabled;
+  final bool monthlyReportEnabled;
+  final bool goalMissNotificationEnabled;
+  final bool goalAchievementCelebrationEnabled;
+  
   const SettingsState({
     required this.hapticEnabled,
     required this.volumeRockerEnabled,
@@ -55,6 +61,10 @@ class SettingsState {
     this.customEndHour,
     required this.autoCountEnabled,
     required this.autoCountSpeed,
+    required this.weeklyReportEnabled,
+    required this.monthlyReportEnabled,
+    required this.goalMissNotificationEnabled,
+    required this.goalAchievementCelebrationEnabled,
   });
 
   factory SettingsState.defaults() {
@@ -73,6 +83,10 @@ class SettingsState {
       customEndHour: null,
       autoCountEnabled: false,
       autoCountSpeed: 2.0,
+      weeklyReportEnabled: true,
+      monthlyReportEnabled: true,
+      goalMissNotificationEnabled: true,
+      goalAchievementCelebrationEnabled: true,
     );
   }
 
@@ -92,6 +106,10 @@ class SettingsState {
     bool clearCustomHours = false,
     bool? autoCountEnabled,
     double? autoCountSpeed,
+    bool? weeklyReportEnabled,
+    bool? monthlyReportEnabled,
+    bool? goalMissNotificationEnabled,
+    bool? goalAchievementCelebrationEnabled,
   }) {
     return SettingsState(
       hapticEnabled: hapticEnabled ?? this.hapticEnabled,
@@ -108,6 +126,10 @@ class SettingsState {
       customEndHour: clearCustomHours ? null : (customEndHour ?? this.customEndHour),
       autoCountEnabled: autoCountEnabled ?? this.autoCountEnabled,
       autoCountSpeed: autoCountSpeed ?? this.autoCountSpeed,
+      weeklyReportEnabled: weeklyReportEnabled ?? this.weeklyReportEnabled,
+      monthlyReportEnabled: monthlyReportEnabled ?? this.monthlyReportEnabled,
+      goalMissNotificationEnabled: goalMissNotificationEnabled ?? this.goalMissNotificationEnabled,
+      goalAchievementCelebrationEnabled: goalAchievementCelebrationEnabled ?? this.goalAchievementCelebrationEnabled,
     );
   }
 
@@ -127,6 +149,10 @@ class SettingsState {
       'customEndHour': customEndHour,
       'autoCountEnabled': autoCountEnabled,
       'autoCountSpeed': autoCountSpeed,
+      'weeklyReportEnabled': weeklyReportEnabled,
+      'monthlyReportEnabled': monthlyReportEnabled,
+      'goalMissNotificationEnabled': goalMissNotificationEnabled,
+      'goalAchievementCelebrationEnabled': goalAchievementCelebrationEnabled,
     };
   }
 
@@ -153,6 +179,10 @@ class SettingsState {
       customEndHour: json['customEndHour'] as int?,
       autoCountEnabled: json['autoCountEnabled'] as bool? ?? false,
       autoCountSpeed: (json['autoCountSpeed'] as num?)?.toDouble() ?? 2.0,
+      weeklyReportEnabled: json['weeklyReportEnabled'] as bool? ?? true,
+      monthlyReportEnabled: json['monthlyReportEnabled'] as bool? ?? true,
+      goalMissNotificationEnabled: json['goalMissNotificationEnabled'] as bool? ?? true,
+      goalAchievementCelebrationEnabled: json['goalAchievementCelebrationEnabled'] as bool? ?? true,
     );
   }
 
@@ -173,7 +203,11 @@ class SettingsState {
         other.customStartHour == customStartHour &&
         other.customEndHour == customEndHour &&
         other.autoCountEnabled == autoCountEnabled &&
-        other.autoCountSpeed == autoCountSpeed;
+        other.autoCountSpeed == autoCountSpeed &&
+        other.weeklyReportEnabled == weeklyReportEnabled &&
+        other.monthlyReportEnabled == monthlyReportEnabled &&
+        other.goalMissNotificationEnabled == goalMissNotificationEnabled &&
+        other.goalAchievementCelebrationEnabled == goalAchievementCelebrationEnabled;
   }
 
   @override
@@ -193,6 +227,10 @@ class SettingsState {
       customEndHour,
       autoCountEnabled,
       autoCountSpeed,
+      weeklyReportEnabled,
+      monthlyReportEnabled,
+      goalMissNotificationEnabled,
+      goalAchievementCelebrationEnabled,
     );
   }
 }

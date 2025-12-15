@@ -98,6 +98,49 @@ class SettingsScreen extends ConsumerWidget {
             trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
           ),
 
+          // === REPORTS & NOTIFICATIONS ===
+          const SettingsSection(title: 'Reports & Notifications'),
+          
+          SettingsTile(
+            icon: Icons.date_range,
+            title: 'Weekly Progress Report',
+            subtitle: 'Show weekly summary on app open',
+            switchValue: settings.weeklyReportEnabled,
+            onSwitchChanged: (value) {
+              ref.read(settingsProvider.notifier).setWeeklyReportEnabled(value);
+            },
+          ),
+          
+          SettingsTile(
+            icon: Icons.calendar_month,
+            title: 'Monthly Progress Report',
+            subtitle: 'Show monthly summary on app open',
+            switchValue: settings.monthlyReportEnabled,
+            onSwitchChanged: (value) {
+              ref.read(settingsProvider.notifier).setMonthlyReportEnabled(value);
+            },
+          ),
+          
+          SettingsTile(
+            icon: Icons.trending_down,
+            title: 'Goal Miss Reminder',
+            subtitle: 'Remind when yesterday\'s goal was missed',
+            switchValue: settings.goalMissNotificationEnabled,
+            onSwitchChanged: (value) {
+              ref.read(settingsProvider.notifier).setGoalMissNotificationEnabled(value);
+            },
+          ),
+          
+          SettingsTile(
+            icon: Icons.celebration,
+            title: 'Goal Celebration',
+            subtitle: 'Celebrate when daily goal is achieved',
+            switchValue: settings.goalAchievementCelebrationEnabled,
+            onSwitchChanged: (value) {
+              ref.read(settingsProvider.notifier).setGoalAchievementCelebrationEnabled(value);
+            },
+          ),
+
           // === ABOUT ===
           const SettingsSection(title: 'About'),
           
@@ -197,7 +240,7 @@ class SettingsScreen extends ConsumerWidget {
   }) {
     return Material(
       color: isSelected 
-          ? AppColors.primary.withOpacity(0.15) 
+          ? AppColors.primary.withValues(alpha: 0.15) 
           : AppColors.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
@@ -209,7 +252,7 @@ class SettingsScreen extends ConsumerWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected 
-                  ? AppColors.primary.withOpacity(0.5) 
+                  ? AppColors.primary.withValues(alpha: 0.5) 
                   : Colors.transparent,
               width: 2,
             ),

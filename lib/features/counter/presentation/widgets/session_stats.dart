@@ -105,7 +105,7 @@ class SessionStats extends StatelessWidget {
     if (hours > 0) {
       return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
     } else if (minutes > 0) {
-      return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+      return '$minutes:${seconds.toString().padLeft(2, '0')}';
     } else {
       return '0:${seconds.toString().padLeft(2, '0')}';
     }

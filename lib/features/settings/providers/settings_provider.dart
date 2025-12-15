@@ -122,4 +122,24 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(autoCountSpeed: speed);
     await _saveSettings();
   }
+
+  Future<void> setWeeklyReportEnabled(bool enabled) async {
+    state = state.copyWith(weeklyReportEnabled: enabled);
+    await _saveSettings();
+  }
+
+  Future<void> setMonthlyReportEnabled(bool enabled) async {
+    state = state.copyWith(monthlyReportEnabled: enabled);
+    await _saveSettings();
+  }
+
+  Future<void> setGoalMissNotificationEnabled(bool enabled) async {
+    state = state.copyWith(goalMissNotificationEnabled: enabled);
+    await _saveSettings();
+  }
+
+  Future<void> setGoalAchievementCelebrationEnabled(bool enabled) async {
+    state = state.copyWith(goalAchievementCelebrationEnabled: enabled);
+    await _saveSettings();
+  }
 }
