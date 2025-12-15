@@ -1,11 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <!-- Usage Stats Permission (for Screen Time Reflection) -->
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
-    <!-- Required on Android 11+ to query all installed packages -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
-    
-    
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Notification Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -87,9 +81,6 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
-        <!-- Query for usage stats settings -->
-        <intent>
-            <action android:name="android.settings.USAGE_ACCESS_SETTINGS"/>
-        </intent>
+
     </queries>
 </manifest>

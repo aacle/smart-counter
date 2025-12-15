@@ -39,8 +39,7 @@ dependencies:
   # Screen Wake Lock
   wakelock_plus: ^1.2.10
   
-  # Screen Time Usage (Android)
-  app_usage: ^4.0.0
+
   
   # Local Notifications (Reminders)
   flutter_local_notifications: ^18.0.1

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:app_usage/app_usage.dart';
+
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/constants/app_constants.dart';
@@ -23,15 +23,11 @@ class InsightsScreen extends ConsumerStatefulWidget {
 class _InsightsScreenState extends ConsumerState<InsightsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  Duration? _todayScreenTime;
-  bool _screenTimeLoading = true;
-  bool _hasUsagePermission = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _loadScreenTime();
   }
 
   @override
@@ -40,34 +36,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
     super.dispose();
   }
 
-  Future<void> _loadScreenTime() async {
-    try {
-      final now = DateTime.now();
-      final todayStart = DateTime(now.year, now.month, now.day);
 
-      final todayUsage = await AppUsage().getAppUsage(todayStart, now);
-
-      Duration todayTotal = Duration.zero;
-      for (var app in todayUsage) {
-        todayTotal += app.usage;
-      }
-
-      if (mounted) {
-        setState(() {
-          _todayScreenTime = todayTotal;
-          _hasUsagePermission = true;
-          _screenTimeLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _hasUsagePermission = false;
-          _screenTimeLoading = false;
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +71,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
                 icon: const Icon(Icons.refresh),
                 onPressed: () {
                   ref.invalidate(lifetimeStatsProvider);
-                  _loadScreenTime();
                 },
               ),
             ],
@@ -137,12 +105,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
                       // Period Stats Tabs
                       _buildPeriodTabs(context, insights, lifetimeStats),
 
-                      const SizedBox(height: 20),
 
-                      // Screen Time Reflection
-                      _buildScreenTimeCard(context),
-
-                      const SizedBox(height: 20),
 
                       // Motivational Card
                       _buildMotivationalCard(context, insights),
@@ -1306,160 +1269,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
     );
   }
 
-  /// Screen time reflection card
-  Widget _buildScreenTimeCard(BuildContext context) {
-    if (_screenTimeLoading) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-      );
-    }
-
-    if (!_hasUsagePermission || _todayScreenTime == null) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          children: [
-            const Icon(Icons.access_time_filled, color: AppColors.textMuted, size: 32),
-            const SizedBox(height: 12),
-            Text(
-              'Screen Time Unavailable',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Enable Usage Access in Settings',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final todayMinutes = _todayScreenTime!.inMinutes;
-    final potentialMinNamJap = todayMinutes * 100;
-    final potentialMaxNamJap = todayMinutes * 166;
-    final potentialMalas = potentialMaxNamJap ~/ 108;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.redAccent.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.phone_android, color: Colors.redAccent, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Missed Opportunity',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    Text(
-                      "Today's phone usage",
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                _formatDuration(_todayScreenTime!),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  'You could have chanted',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _formatNumber(potentialMinNamJap),
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    Text(
-                      ' - ',
-                      style: TextStyle(color: AppColors.textMuted),
-                    ),
-                    Text(
-                      _formatNumber(potentialMaxNamJap),
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ],
-                ),
-                Text(
-                  'Nam Jap (~$potentialMalas malas)',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 400.ms, delay: 300.ms).slideY(begin: 0.1, end: 0);
-  }
 
   /// Motivational card based on performance
   Widget _buildMotivationalCard(BuildContext context, InsightsState insights) {
@@ -1537,12 +1346,5 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
     return number.toString();
   }
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes % 60;
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    }
-    return '${minutes}m';
-  }
+
 }
