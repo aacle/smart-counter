@@ -71,7 +71,7 @@ Future<void> alarmCallback() async {
   await notifications.show(
     1, // Fixed ID to replace previous notification
     'Time to Chant 🙏',
-    'Take a moment for your Simran practice',
+    'Please Prabhu Ka nam Sumiran Kariye',
     const NotificationDetails(
       android: AndroidNotificationDetails(
         'chant_reminders',

@@ -76,6 +76,14 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _showInterfaceModeDialog(context, ref, settings.interfaceMode),
             trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
           ),
+          
+          SettingsTile(
+            icon: Icons.title,
+            title: 'Custom Title',
+            subtitle: settings.customTitle.isEmpty ? 'Set a custom title' : settings.customTitle,
+            onTap: () => _showCustomTitleDialog(context, ref, settings.customTitle),
+            trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+          ),
 
           // === GOALS ===
           const SettingsSection(title: 'Goals'),
@@ -128,16 +136,6 @@ class SettingsScreen extends ConsumerWidget {
             switchValue: settings.goalMissNotificationEnabled,
             onSwitchChanged: (value) {
               ref.read(settingsProvider.notifier).setGoalMissNotificationEnabled(value);
-            },
-          ),
-          
-          SettingsTile(
-            icon: Icons.celebration,
-            title: 'Goal Celebration',
-            subtitle: 'Celebrate when daily goal is achieved',
-            switchValue: settings.goalAchievementCelebrationEnabled,
-            onSwitchChanged: (value) {
-              ref.read(settingsProvider.notifier).setGoalAchievementCelebrationEnabled(value);
             },
           ),
 
@@ -226,6 +224,66 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCustomTitleDialog(BuildContext context, WidgetRef ref, String currentTitle) {
+    final controller = TextEditingController(text: currentTitle);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Custom Title', style: Theme.of(context).textTheme.headlineMedium),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Set a custom title for the counter screen',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Enter title...',
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              style: const TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newTitle = controller.text.trim();
+              if (newTitle.isNotEmpty) {
+                ref.read(settingsProvider.notifier).setCustomTitle(newTitle);
+              }
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
   }

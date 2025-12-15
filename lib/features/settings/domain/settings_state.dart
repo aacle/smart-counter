@@ -46,6 +46,9 @@ class SettingsState {
   final bool goalMissNotificationEnabled;
   final bool goalAchievementCelebrationEnabled;
   
+  // Customization
+  final String customTitle;  // Custom title for counter screen
+  
   const SettingsState({
     required this.hapticEnabled,
     required this.volumeRockerEnabled,
@@ -65,6 +68,7 @@ class SettingsState {
     required this.monthlyReportEnabled,
     required this.goalMissNotificationEnabled,
     required this.goalAchievementCelebrationEnabled,
+    required this.customTitle,
   });
 
   factory SettingsState.defaults() {
@@ -87,6 +91,7 @@ class SettingsState {
       monthlyReportEnabled: true,
       goalMissNotificationEnabled: true,
       goalAchievementCelebrationEnabled: true,
+      customTitle: 'सुमिरन',
     );
   }
 
@@ -110,6 +115,7 @@ class SettingsState {
     bool? monthlyReportEnabled,
     bool? goalMissNotificationEnabled,
     bool? goalAchievementCelebrationEnabled,
+    String? customTitle,
   }) {
     return SettingsState(
       hapticEnabled: hapticEnabled ?? this.hapticEnabled,
@@ -130,6 +136,7 @@ class SettingsState {
       monthlyReportEnabled: monthlyReportEnabled ?? this.monthlyReportEnabled,
       goalMissNotificationEnabled: goalMissNotificationEnabled ?? this.goalMissNotificationEnabled,
       goalAchievementCelebrationEnabled: goalAchievementCelebrationEnabled ?? this.goalAchievementCelebrationEnabled,
+      customTitle: customTitle ?? this.customTitle,
     );
   }
 
@@ -153,6 +160,7 @@ class SettingsState {
       'monthlyReportEnabled': monthlyReportEnabled,
       'goalMissNotificationEnabled': goalMissNotificationEnabled,
       'goalAchievementCelebrationEnabled': goalAchievementCelebrationEnabled,
+      'customTitle': customTitle,
     };
   }
 
@@ -183,6 +191,7 @@ class SettingsState {
       monthlyReportEnabled: json['monthlyReportEnabled'] as bool? ?? true,
       goalMissNotificationEnabled: json['goalMissNotificationEnabled'] as bool? ?? true,
       goalAchievementCelebrationEnabled: json['goalAchievementCelebrationEnabled'] as bool? ?? true,
+      customTitle: json['customTitle'] as String? ?? 'सुमिरन',
     );
   }
 
@@ -207,7 +216,8 @@ class SettingsState {
         other.weeklyReportEnabled == weeklyReportEnabled &&
         other.monthlyReportEnabled == monthlyReportEnabled &&
         other.goalMissNotificationEnabled == goalMissNotificationEnabled &&
-        other.goalAchievementCelebrationEnabled == goalAchievementCelebrationEnabled;
+        other.goalAchievementCelebrationEnabled == goalAchievementCelebrationEnabled &&
+        other.customTitle == customTitle;
   }
 
   @override
@@ -231,6 +241,7 @@ class SettingsState {
       monthlyReportEnabled,
       goalMissNotificationEnabled,
       goalAchievementCelebrationEnabled,
+      customTitle,
     );
   }
 }

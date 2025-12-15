@@ -18,7 +18,6 @@ import '../../insights/presentation/insights_screen.dart';
 import '../../insights/providers/insights_provider.dart';
 import '../../insights/presentation/widgets/weekly_report_dialog.dart';
 import '../../insights/presentation/widgets/goal_miss_banner.dart';
-import '../../insights/presentation/widgets/goal_celebration_dialog.dart';
 import '../../../services/report_service.dart';
 import 'widgets/mala_beads.dart';
 import 'widgets/counter_display.dart';
@@ -46,7 +45,6 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   Duration _sessionDuration = Duration.zero;
   bool _showCelebration = false;
   bool _isAutoCountActive = false;
-  bool _goalCelebratedToday = false;
   GoalMissInfo? _goalMissInfo;
 
   @override
@@ -138,41 +136,6 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     );
   }
 
-  void _checkAndShowGoalCelebration() {
-    if (_goalCelebratedToday) return;
-    
-    final settings = ref.read(settingsProvider);
-    if (!settings.goalAchievementCelebrationEnabled) return;
-    
-    final insights = ref.read(insightsProvider);
-    
-    final bool isCountGoal = settings.goalType == GoalType.counts;
-    final int goalValue = isCountGoal ? settings.dailyGoalCount : settings.dailyGoal;
-    
-    if (goalValue <= 0) return;
-    
-    final todayStats = insights.todayStats;
-    final currentValue = isCountGoal ? todayStats.counts : todayStats.malas;
-    
-    if (currentValue >= goalValue) {
-      setState(() {
-        _goalCelebratedToday = true;
-      });
-      
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => GoalCelebrationDialog(
-          achieved: currentValue,
-          goal: goalValue,
-          isCountGoal: isCountGoal,
-          currentStreak: insights.currentStreak,
-          onDismiss: () => Navigator.pop(context),
-        ),
-      );
-    }
-  }
-
   void _applySettings(settings) {
     // Apply wakelock
     if (settings.keepScreenAwake) {
@@ -255,9 +218,6 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     if (newMalas > currentMalas) {
       _showMalaCelebration();
     }
-    
-    // Check if goal was just achieved
-    _checkAndShowGoalCelebration();
   }
 
   void _onAutoCount() {
@@ -391,7 +351,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
                   ),
                   // Title
                   Text(
-                    'Simran',
+                    settings.customTitle,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w300,

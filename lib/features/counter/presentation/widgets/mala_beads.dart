@@ -238,13 +238,6 @@ class _CelebrationOverlay extends StatelessWidget {
           ],
         ),
       ),
-      child: Center(
-        child: Icon(
-          Icons.check_circle_outline,
-          size: 80,
-          color: AppColors.success.withValues(alpha: 0.8),
-        ),
-      ),
     );
   }
 }

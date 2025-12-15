@@ -9,6 +9,8 @@ import '../../settings/domain/settings_state.dart';
 import '../../counter/providers/counter_provider.dart';
 import '../providers/insights_provider.dart';
 import '../domain/daily_stats.dart';
+import 'widgets/weekly_report_dialog.dart';
+import '../../../services/report_service.dart';
 
 /// Comprehensive Stats/Insights screen
 class InsightsScreen extends ConsumerStatefulWidget {
@@ -1024,13 +1026,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
 
           // Tab content
           SizedBox(
-            height: 220,
+            height: 260,
             child: TabBarView(
               controller: _tabController,
               children: [
                 _buildPeriodContent(insights.getPeriodStats(1), 'Today'),
-                _buildPeriodContent(insights.getPeriodStats(7), 'This Week'),
-                _buildPeriodContent(insights.getPeriodStats(30), 'This Month'),
+                _buildPeriodContentWithReport(insights.getPeriodStats(7), 'This Week', isWeekly: true),
+                _buildPeriodContentWithReport(insights.getPeriodStats(30), 'This Month', isWeekly: false),
                 lifetimeStats.when(
                   data: (stats) => _buildLifetimeContent(stats, insights.lifetimeStats),
                   loading: () => const Center(
@@ -1101,6 +1103,112 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodContentWithReport(PeriodStats stats, String periodName, {required bool isWeekly}) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // Main stats row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatColumn(
+                _formatNumber(stats.totalCounts),
+                'Counts',
+                Icons.touch_app,
+              ),
+              _buildStatColumn(
+                stats.totalMalas.toString(),
+                'Malas',
+                Icons.all_inclusive,
+              ),
+              _buildStatColumn(
+                stats.totalSessions.toString(),
+                'Sessions',
+                Icons.play_circle_outline,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Report preview button
+          GestureDetector(
+            onTap: () => _showReportPreview(isWeekly),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.15),
+                    AppColors.secondary.withValues(alpha: 0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.insights, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    isWeekly ? 'View Weekly Report' : 'View Monthly Report',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Averages
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildMiniStat(
+                  '${stats.avgMalasPerDay.toStringAsFixed(1)}',
+                  'Avg/Day',
+                ),
+                Container(width: 1, height: 24, color: AppColors.cardBackground),
+                _buildMiniStat(
+                  '${stats.daysActive}',
+                  'Days Active',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReportPreview(bool isWeekly) {
+    final settings = ref.read(settingsProvider);
+    final insights = ref.read(insightsProvider);
+    final reportService = ReportService.instance;
+    final last7Days = insights.getStatsForDays(7);
+    final reportData = reportService.generateWeeklyReport(last7Days, settings);
+    
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => WeeklyReportDialog(
+        reportData: reportData,
+        onDismiss: () => Navigator.pop(context),
       ),
     );
   }

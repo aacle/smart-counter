@@ -142,4 +142,9 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(goalAchievementCelebrationEnabled: enabled);
     await _saveSettings();
   }
+
+  Future<void> setCustomTitle(String title) async {
+    state = state.copyWith(customTitle: title);
+    await _saveSettings();
+  }
 }
