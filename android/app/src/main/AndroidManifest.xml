@@ -5,7 +5,7 @@
     <!-- Required on Android 11+ to query all installed packages -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Notification Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
