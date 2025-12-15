@@ -1346,5 +1346,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
     return number.toString();
   }
 
-
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    }
+    return '${minutes}m';
+  }
 }
