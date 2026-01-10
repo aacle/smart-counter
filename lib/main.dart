@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'app.dart';
 import 'services/home_widget_service.dart';
+import 'services/reminder_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,8 +12,8 @@ void main() async {
   // Initialize Hive for local storage
   await Hive.initFlutter();
 
-  // Initialize Android Alarm Manager (for background reminders)
-  await AndroidAlarmManager.initialize();
+  // Restore reminders if they were previously enabled (non-blocking)
+  ReminderService().restoreRemindersIfEnabled();
 
   // Initialize Home Widget Service
   await HomeWidgetService.initialize();

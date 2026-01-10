@@ -1,11 +1,13 @@
 import 'package:vibration/vibration.dart';
 import 'package:flutter/services.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 /// Service for playing tick sounds/feedback during auto-count
 class SoundService {
   static SoundService? _instance;
   
   bool _hasVibrator = false;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   SoundService._();
 
@@ -17,8 +19,22 @@ class SoundService {
   Future<void> initialize() async {
     try {
       _hasVibrator = await Vibration.hasVibrator() == true;
+      // Preload the tap sound to reduce latency
+      await _audioPlayer.setSource(AssetSource('sounds/tap.mp3'));
     } catch (e) {
       _hasVibrator = false;
+    }
+  }
+
+  /// Play tap sound
+  Future<void> playTapSound() async {
+    try {
+      // Stop previous playback to allow rapid tapping
+      await _audioPlayer.stop();
+      await _audioPlayer.play(AssetSource('sounds/tap.mp3'), mode: PlayerMode.lowLatency);
+    } catch (e) {
+      // Fallback to system sound if audio fails
+      SystemSound.play(SystemSoundType.click);
     }
   }
 
@@ -55,6 +71,6 @@ class SoundService {
   }
 
   void dispose() {
-    // Nothing to dispose
+    _audioPlayer.dispose();
   }
 }

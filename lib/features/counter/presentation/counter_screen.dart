@@ -81,8 +81,20 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   /// Check for pending reports to show
   Future<void> _checkForReports() async {
     final settings = ref.read(settingsProvider);
-    final insights = ref.read(insightsProvider);
+    var insights = ref.read(insightsProvider);
     final reportService = ReportService.instance;
+    
+    // Wait for insights data to finish loading before checking reports
+    // This prevents showing incorrect "0 malas" when data hasn't loaded yet
+    int attempts = 0;
+    while (insights.isLoading && attempts < 20) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      insights = ref.read(insightsProvider);
+      attempts++;
+    }
+    
+    // If still loading after 2 seconds, skip checks for now
+    if (insights.isLoading) return;
     
     // Priority: Monthly > Weekly > Goal Miss
     
@@ -211,6 +223,11 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     // Trigger haptic feedback if enabled
     if (settings.hapticEnabled) {
       _hapticService.onCount(currentState.count + 1);
+    }
+    
+    // Play tap sound if enabled
+    if (settings.tapSoundEnabled) {
+      _soundService.playTapSound();
     }
     
     final newState = ref.read(counterProvider);

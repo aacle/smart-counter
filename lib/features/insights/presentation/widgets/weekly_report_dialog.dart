@@ -60,7 +60,7 @@ class WeeklyReportDialog extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Your Week in Review',
+                              reportData.isWeekly ? 'Your Week in Review' : 'Your Month in Review',
                               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
@@ -105,25 +105,30 @@ class WeeklyReportDialog extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // Weekly bar chart
-                  SizedBox(
-                    height: 100,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: List.generate(7, (index) {
-                        final day = reportData.dailyProgress[index];
-                        return _buildDayBar(
-                          context,
-                          weekDays[(day.date.weekday - 1) % 7],
-                          day.progress,
-                          day.goalMet,
-                          isBest: index == reportData.bestDayIndex,
-                          isWorst: index == reportData.worstDayIndex && !day.goalMet,
-                        );
-                      }),
-                    ),
-                  ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
+                  // Bar chart - different layouts for weekly vs monthly
+                  if (reportData.isWeekly)
+                    // Weekly: Show 7 individual day bars with labels
+                    SizedBox(
+                      height: 100,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: List.generate(7, (index) {
+                          final day = reportData.dailyProgress[index];
+                          return _buildDayBar(
+                            context,
+                            weekDays[(day.date.weekday - 1) % 7],
+                            day.progress,
+                            day.goalMet,
+                            isBest: index == reportData.bestDayIndex,
+                            isWorst: index == reportData.worstDayIndex && !day.goalMet,
+                          );
+                        }),
+                      ),
+                    ).animate().fadeIn(duration: 400.ms, delay: 200.ms)
+                  else
+                    // Monthly: Show all 30 days as compact bars grouped by week
+                    _buildMonthlyChart(context).animate().fadeIn(duration: 400.ms, delay: 200.ms),
                   
                   const SizedBox(height: 20),
                   
@@ -139,7 +144,7 @@ class WeeklyReportDialog extends StatelessWidget {
                         Expanded(
                           child: _buildStat(
                             context,
-                            '${reportData.daysGoalMet}/7',
+                            '${reportData.daysGoalMet}/${reportData.totalDays}',
                             'Goals Met',
                             reportData.achievementRate >= 0.7 ? AppColors.success : AppColors.primary,
                           ),
@@ -294,6 +299,100 @@ class WeeklyReportDialog extends StatelessWidget {
     );
   }
 
+  /// Build calendar-style monthly chart with weeks as rows
+  Widget _buildMonthlyChart(BuildContext context) {
+    final totalDays = reportData.dailyProgress.length;
+    
+    // Group days into weeks (7 days each)
+    final weeks = <List<DayProgress>>[];
+    for (int i = 0; i < totalDays; i += 7) {
+      final end = (i + 7 > totalDays) ? totalDays : i + 7;
+      weeks.add(reportData.dailyProgress.sublist(i, end));
+    }
+    
+    return SizedBox(
+      height: 120,
+      child: Row(
+        children: [
+          // Week labels on left
+          Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              for (int i = 0; i < weeks.length; i++)
+                SizedBox(
+                  height: 18,
+                  child: Text(
+                    'W${i + 1}',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 8),
+          // Grid of days
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                for (int weekIndex = 0; weekIndex < weeks.length; weekIndex++)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      for (int dayIdx = 0; dayIdx < 7; dayIdx++)
+                        dayIdx < weeks[weekIndex].length
+                            ? _buildGridDayBar(
+                                weeks[weekIndex][dayIdx].progress,
+                                weeks[weekIndex][dayIdx].goalMet,
+                                isBest: (weekIndex * 7 + dayIdx) == reportData.bestDayIndex,
+                              )
+                            : const SizedBox(width: 38), // Empty placeholder for incomplete week
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Grid day bar for calendar-style monthly chart - pill shaped
+  Widget _buildGridDayBar(double progress, bool goalMet, {bool isBest = false}) {
+    // Determine bar color based on status
+    Color barColor;
+    if (goalMet) {
+      barColor = AppColors.success;
+    } else if (progress > 0) {
+      barColor = AppColors.primary; // Yellow for partial
+    } else {
+      barColor = AppColors.textMuted.withValues(alpha: 0.3); // Gray for inactive
+    }
+    
+    return Container(
+      width: 34,
+      height: 12,
+      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
+      decoration: BoxDecoration(
+        color: barColor,
+        borderRadius: BorderRadius.circular(6), // Fully rounded pill
+        border: isBest 
+            ? Border.all(color: AppColors.secondary, width: 2) 
+            : null,
+        boxShadow: goalMet ? [
+          BoxShadow(
+            color: AppColors.success.withValues(alpha: 0.3),
+            blurRadius: 4,
+            spreadRadius: 0,
+          ),
+        ] : null,
+      ),
+    );
+  }
+
   Widget _buildStat(BuildContext context, String value, String label, Color color) {
     return Column(
       children: [
@@ -362,7 +461,7 @@ class WeeklyReportDialog extends StatelessWidget {
 
   String _getDateRange() {
     final now = DateTime.now();
-    final start = now.subtract(const Duration(days: 7));
+    final start = now.subtract(Duration(days: reportData.totalDays));
     return '${_formatDate(start)} - ${_formatDate(now)}';
   }
 

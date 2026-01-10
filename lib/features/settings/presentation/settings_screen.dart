@@ -40,6 +40,16 @@ class SettingsScreen extends ConsumerWidget {
           ),
           
           SettingsTile(
+            icon: Icons.music_note,
+            title: 'Tap Sound',
+            subtitle: 'Play sound on each count',
+            switchValue: settings.tapSoundEnabled,
+            onSwitchChanged: (value) {
+              ref.read(settingsProvider.notifier).setTapSoundEnabled(value);
+            },
+          ),
+          
+          SettingsTile(
             icon: Icons.volume_up,
             title: 'Volume Button Counting',
             subtitle: 'Use volume keys to count',

@@ -14,8 +14,13 @@ class ReportService {
   ReportService._();
 
   /// Check if weekly report should be shown
-  /// Shows once per week (7 days since last shown)
+  /// Shows every Monday (if not already shown this Monday)
   Future<bool> shouldShowWeeklyReport() async {
+    final now = DateTime.now();
+    
+    // Only show on Monday (weekday == 1)
+    if (now.weekday != DateTime.monday) return false;
+    
     final prefs = await SharedPreferences.getInstance();
     final lastShown = prefs.getString(_lastWeeklyReportKey);
     
@@ -24,13 +29,21 @@ class ReportService {
     final lastDate = DateTime.tryParse(lastShown);
     if (lastDate == null) return true;
     
-    final daysSince = DateTime.now().difference(lastDate).inDays;
-    return daysSince >= 7;
+    // Check if already shown today (this Monday)
+    final today = DateTime(now.year, now.month, now.day);
+    final lastShownDate = DateTime(lastDate.year, lastDate.month, lastDate.day);
+    
+    return today.isAfter(lastShownDate);
   }
 
   /// Check if monthly report should be shown
-  /// Shows once per month (on first day of month or 30 days since last)
+  /// Shows on the 1st day of each month (if not already shown this month)
   Future<bool> shouldShowMonthlyReport() async {
+    final now = DateTime.now();
+    
+    // Only show on the 1st day of the month
+    if (now.day != 1) return false;
+    
     final prefs = await SharedPreferences.getInstance();
     final lastShown = prefs.getString(_lastMonthlyReportKey);
     
@@ -39,16 +52,8 @@ class ReportService {
     final lastDate = DateTime.tryParse(lastShown);
     if (lastDate == null) return true;
     
-    final now = DateTime.now();
-    
-    // Show if it's a new month since last report
-    if (now.month != lastDate.month || now.year != lastDate.year) {
-      return true;
-    }
-    
-    // Or if 30 days have passed
-    final daysSince = now.difference(lastDate).inDays;
-    return daysSince >= 30;
+    // Check if already shown this month
+    return now.month != lastDate.month || now.year != lastDate.year;
   }
 
   /// Mark weekly report as shown
@@ -120,27 +125,36 @@ class ReportService {
     );
   }
 
-  /// Generate weekly report data
+  /// Generate weekly report data (backward compatible)
   WeeklyReportData generateWeeklyReport(
-    List<DailyStats> last7Days,
+    List<DailyStats> lastNDays,
     SettingsState settings,
   ) {
+    return generateReport(lastNDays, settings, days: 7);
+  }
+
+  /// Generate report data for any period (7 for weekly, 30 for monthly)
+  WeeklyReportData generateReport(
+    List<DailyStats> stats,
+    SettingsState settings, {
+    required int days,
+  }) {
     final bool isCountGoal = settings.goalType == GoalType.counts;
     final int goalValue = isCountGoal ? settings.dailyGoalCount : settings.dailyGoal;
     
     int daysGoalMet = 0;
-    int bestDayIndex = 0;
-    int worstDayIndex = 0;
+    int bestDayIndex = -1;
+    int worstDayIndex = -1;
     int bestValue = 0;
     int worstValue = 999999999;  // Large value for comparison
     int totalValue = 0;
     
     final List<DayProgress> dailyProgress = [];
     
-    // Reverse so index 0 is 7 days ago, index 6 is yesterday
-    final reversed = last7Days.reversed.toList();
+    // Reverse so index 0 is N days ago, last index is yesterday
+    final reversed = stats.reversed.toList();
     
-    for (int i = 0; i < reversed.length && i < 7; i++) {
+    for (int i = 0; i < reversed.length && i < days; i++) {
       final day = reversed[i];
       final value = isCountGoal ? day.counts : day.malas;
       final progress = goalValue > 0 ? (value / goalValue).clamp(0.0, 1.5) : 0.0;
@@ -163,15 +177,15 @@ class ReportService {
       }
       
       dailyProgress.add(DayProgress(
-        date: DateTime.now().subtract(Duration(days: 7 - i - 1)),
+        date: DateTime.now().subtract(Duration(days: days - i - 1)),
         value: value,
         progress: progress,
         goalMet: goalValue > 0 && value >= goalValue,
       ));
     }
     
-    // Pad to 7 days if needed
-    while (dailyProgress.length < 7) {
+    // Pad to required days if needed
+    while (dailyProgress.length < days) {
       dailyProgress.insert(0, DayProgress(
         date: DateTime.now().subtract(Duration(days: dailyProgress.length)),
         value: 0,
@@ -180,7 +194,7 @@ class ReportService {
       ));
     }
     
-    final achievementRate = goalValue > 0 ? daysGoalMet / 7 : 0.0;
+    final achievementRate = goalValue > 0 ? daysGoalMet / days : 0.0;
     
     return WeeklyReportData(
       dailyProgress: dailyProgress,
@@ -189,9 +203,10 @@ class ReportService {
       bestDayIndex: bestDayIndex,
       worstDayIndex: worstValue >= 999999999 ? -1 : worstDayIndex,
       totalValue: totalValue,
-      averageValue: totalValue ~/ 7,
+      averageValue: days > 0 ? totalValue ~/ days : 0,
       isCountGoal: isCountGoal,
       goalValue: goalValue,
+      totalDays: days,
     );
   }
 }
@@ -228,7 +243,7 @@ class DayProgress {
   });
 }
 
-/// Weekly report data
+/// Report data (supports weekly and monthly)
 class WeeklyReportData {
   final List<DayProgress> dailyProgress;
   final int daysGoalMet;
@@ -239,6 +254,7 @@ class WeeklyReportData {
   final int averageValue;
   final bool isCountGoal;
   final int goalValue;
+  final int totalDays;  // 7 for weekly, 30 for monthly
   
   const WeeklyReportData({
     required this.dailyProgress,
@@ -250,7 +266,11 @@ class WeeklyReportData {
     required this.averageValue,
     required this.isCountGoal,
     required this.goalValue,
+    this.totalDays = 7,
   });
+  
+  /// Whether this is a weekly report (vs monthly)
+  bool get isWeekly => totalDays <= 7;
   
   String get motivationalMessage {
     if (achievementRate >= 1.0) {

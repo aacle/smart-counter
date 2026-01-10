@@ -23,6 +23,9 @@ class SettingsState {
   final GoalType goalType;  // Which type of goal is active
   final InterfaceMode interfaceMode;  // Counter screen display mode
   
+  // Audio settings
+  final bool tapSoundEnabled;
+  
   // Reminder settings
   final bool reminderEnabled;
   final int reminderIntervalMinutes;
@@ -48,6 +51,7 @@ class SettingsState {
   
   // Customization
   final String customTitle;  // Custom title for counter screen
+  final String reminderSound;  // Selected reminder sound file name
   
   const SettingsState({
     required this.hapticEnabled,
@@ -69,11 +73,13 @@ class SettingsState {
     required this.goalMissNotificationEnabled,
     required this.goalAchievementCelebrationEnabled,
     required this.customTitle,
+    required this.reminderSound,
+    required this.tapSoundEnabled,
   });
 
   factory SettingsState.defaults() {
     return const SettingsState(
-      hapticEnabled: true,
+      hapticEnabled: false,
       volumeRockerEnabled: true,
       keepScreenAwake: false,
       dailyGoal: 0,
@@ -92,6 +98,8 @@ class SettingsState {
       goalMissNotificationEnabled: true,
       goalAchievementCelebrationEnabled: true,
       customTitle: 'सुमिरन',
+      reminderSound: 'default',  // 'default' uses system sound
+      tapSoundEnabled: true,
     );
   }
 
@@ -116,6 +124,8 @@ class SettingsState {
     bool? goalMissNotificationEnabled,
     bool? goalAchievementCelebrationEnabled,
     String? customTitle,
+    String? reminderSound,
+    bool? tapSoundEnabled,
   }) {
     return SettingsState(
       hapticEnabled: hapticEnabled ?? this.hapticEnabled,
@@ -137,6 +147,8 @@ class SettingsState {
       goalMissNotificationEnabled: goalMissNotificationEnabled ?? this.goalMissNotificationEnabled,
       goalAchievementCelebrationEnabled: goalAchievementCelebrationEnabled ?? this.goalAchievementCelebrationEnabled,
       customTitle: customTitle ?? this.customTitle,
+      reminderSound: reminderSound ?? this.reminderSound,
+      tapSoundEnabled: tapSoundEnabled ?? this.tapSoundEnabled,
     );
   }
 
@@ -161,6 +173,8 @@ class SettingsState {
       'goalMissNotificationEnabled': goalMissNotificationEnabled,
       'goalAchievementCelebrationEnabled': goalAchievementCelebrationEnabled,
       'customTitle': customTitle,
+      'reminderSound': reminderSound,
+      'tapSoundEnabled': tapSoundEnabled,
     };
   }
 
@@ -192,6 +206,8 @@ class SettingsState {
       goalMissNotificationEnabled: json['goalMissNotificationEnabled'] as bool? ?? true,
       goalAchievementCelebrationEnabled: json['goalAchievementCelebrationEnabled'] as bool? ?? true,
       customTitle: json['customTitle'] as String? ?? 'सुमिरन',
+      reminderSound: json['reminderSound'] as String? ?? 'default',
+      tapSoundEnabled: json['tapSoundEnabled'] as bool? ?? false,
     );
   }
 
@@ -217,7 +233,9 @@ class SettingsState {
         other.monthlyReportEnabled == monthlyReportEnabled &&
         other.goalMissNotificationEnabled == goalMissNotificationEnabled &&
         other.goalAchievementCelebrationEnabled == goalAchievementCelebrationEnabled &&
-        other.customTitle == customTitle;
+        other.customTitle == customTitle &&
+        other.reminderSound == reminderSound &&
+        other.tapSoundEnabled == tapSoundEnabled;
   }
 
   @override
@@ -241,7 +259,11 @@ class SettingsState {
       monthlyReportEnabled,
       goalMissNotificationEnabled,
       goalAchievementCelebrationEnabled,
-      customTitle,
+      Object.hash(
+        customTitle,
+        reminderSound,
+        tapSoundEnabled,
+      ),
     );
   }
 }

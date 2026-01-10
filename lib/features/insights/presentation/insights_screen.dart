@@ -1163,8 +1163,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
     final settings = ref.read(settingsProvider);
     final insights = ref.read(insightsProvider);
     final reportService = ReportService.instance;
-    final last7Days = insights.getStatsForDays(7);
-    final reportData = reportService.generateWeeklyReport(last7Days, settings);
+    
+    // Use 7 days for weekly, 30 days for monthly
+    final days = isWeekly ? 7 : 30;
+    final stats = insights.getStatsForDays(days);
+    final reportData = reportService.generateReport(stats, settings, days: days);
     
     showDialog(
       context: context,

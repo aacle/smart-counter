@@ -3,65 +3,49 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Top-level callback with duplicate prevention
+/// SharedPreferences keys
+class ReminderPrefsKeys {
+  static const reminderEnabled = 'reminder_enabled';
+  static const reminderIntervalMinutes = 'reminder_interval_minutes';
+  static const reminderSound = 'reminder_sound';
+}
+
+/// Top-level callback - runs even when app is closed
 @pragma('vm:entry-point')
-Future<void> alarmCallback() async {
+void alarmCallback() async {
   final prefs = await SharedPreferences.getInstance();
+  final soundId = prefs.getString(ReminderPrefsKeys.reminderSound) ?? 'default';
   
-  // Prevent duplicate notifications (within 30 seconds)
-  final lastNotifyTime = prefs.getInt('last_notify_time') ?? 0;
-  final now = DateTime.now().millisecondsSinceEpoch;
-  if (now - lastNotifyTime < 30000) {
-    return; // Skip if notified less than 30 seconds ago
-  }
-  
-  // Check active hours
-  final activeSlots = prefs.getStringList('active_time_slots') ?? [];
-  final customStart = prefs.getInt('custom_start_hour');
-  final customEnd = prefs.getInt('custom_end_hour');
-  
-  final currentHour = DateTime.now().hour;
-  bool isActiveHour = true;
-  
-  if (customStart != null && customEnd != null) {
-    if (customEnd > customStart) {
-      isActiveHour = currentHour >= customStart && currentHour < customEnd;
-    } else {
-      isActiveHour = currentHour >= customStart || currentHour < customEnd;
-    }
-  } else if (activeSlots.isNotEmpty) {
-    isActiveHour = false;
-    for (final slotStr in activeSlots) {
-      final slot = int.tryParse(slotStr) ?? -1;
-      switch (slot) {
-        case 0: if (currentHour >= 6 && currentHour < 9) isActiveHour = true; break;
-        case 1: if (currentHour >= 9 && currentHour < 12) isActiveHour = true; break;
-        case 2: if (currentHour >= 12 && currentHour < 15) isActiveHour = true; break;
-        case 3: if (currentHour >= 15 && currentHour < 18) isActiveHour = true; break;
-        case 4: if (currentHour >= 18 && currentHour < 21) isActiveHour = true; break;
-        case 5: if (currentHour >= 21 && currentHour < 24) isActiveHour = true; break;
-        case 6: if (currentHour >= 0 && currentHour < 4) isActiveHour = true; break;
-      }
-    }
-  }
-  
-  if (!isActiveHour) return;
-  
-  // Save last notify time
-  await prefs.setInt('last_notify_time', now);
-  
-  // Show notification
   final notifications = FlutterLocalNotificationsPlugin();
   
-  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
   const initSettings = InitializationSettings(android: androidSettings);
   await notifications.initialize(initSettings);
   
-  const channel = AndroidNotificationChannel(
-    'chant_reminders',
-    'Chant Reminders',
+  // Create notification channel with custom sound if selected
+  String channelId = 'chant_reminders';
+  String channelName = 'Chant Reminders';
+  String? rawSoundName;
+  
+  if (soundId == 'ram_ram') {
+    channelId = 'chant_reminders_ram';
+    channelName = 'Ram Nam Reminders';
+    rawSoundName = 'ram_ram';
+  } else if (soundId == 'radha_radha') {
+    channelId = 'chant_reminders_radha';
+    channelName = 'Radha Nam Reminders';
+    rawSoundName = 'radha_radha';
+  }
+  
+  final channel = AndroidNotificationChannel(
+    channelId,
+    channelName,
     description: 'Reminders to chant',
     importance: Importance.max,
+    playSound: true,
+    sound: rawSoundName != null 
+        ? RawResourceAndroidNotificationSound(rawSoundName)
+        : null,
   );
   
   await notifications
@@ -69,24 +53,28 @@ Future<void> alarmCallback() async {
       ?.createNotificationChannel(channel);
   
   await notifications.show(
-    1, // Fixed ID to replace previous notification
+    1,
     'Time to Chant 🙏',
-    'Please Prabhu Ka nam Sumiran Kariye',
-    const NotificationDetails(
+    'Take a moment to do Sumiran',
+    NotificationDetails(
       android: AndroidNotificationDetails(
-        'chant_reminders',
-        'Chant Reminders',
+        channelId,
+        channelName,
         channelDescription: 'Reminders to chant',
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,
+        sound: rawSoundName != null 
+            ? RawResourceAndroidNotificationSound(rawSoundName)
+            : null,
         enableVibration: true,
+        category: AndroidNotificationCategory.reminder,
       ),
     ),
   );
 }
 
-/// Reminder service
+/// Simple reminder service using AndroidAlarmManager
 class ReminderService {
   static final ReminderService _instance = ReminderService._internal();
   factory ReminderService() => _instance;
@@ -96,63 +84,114 @@ class ReminderService {
       FlutterLocalNotificationsPlugin();
   
   bool _isInitialized = false;
-  int _intervalMinutes = 0;
-  
   static const int _alarmId = 999;
   
+  /// Initialize the service
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    await AndroidAlarmManager.initialize();
+
+    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
     const initSettings = InitializationSettings(android: androidSettings);
     await _notifications.initialize(initSettings);
     
-    const channel = AndroidNotificationChannel(
-      'chant_reminders',
-      'Chant Reminders',
-      description: 'Reminders to chant',
-      importance: Importance.max,
-      playSound: true,
-      enableVibration: true,
-    );
-    
+    // Create default channel
     await _notifications
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            'chant_reminders',
+            'Chant Reminders',
+            description: 'Reminders to chant',
+            importance: Importance.max,
+            playSound: true,
+            enableVibration: true,
+          ),
+        );
     
     _isInitialized = true;
   }
 
-  Future<void> startIntervalReminders({
+  /// Get notification channel details based on sound ID
+  Map<String, dynamic> _getChannelDetails(String soundId) {
+    switch (soundId) {
+      case 'ram_ram':
+        return {
+          'channelId': 'chant_reminders_ram',
+          'channelName': 'Ram Nam Reminders',
+          'rawSound': 'ram_ram',
+        };
+      case 'radha_radha':
+        return {
+          'channelId': 'chant_reminders_radha',
+          'channelName': 'Radha Nam Reminders',
+          'rawSound': 'radha_radha',
+        };
+      default:
+        return {
+          'channelId': 'chant_reminders',
+          'channelName': 'Chant Reminders',
+          'rawSound': null,
+        };
+    }
+  }
+
+  /// Start reminder with interval in minutes
+  Future<void> startReminder({
     required int intervalMinutes,
-    List<int>? activeTimeSlots,
-    int? customStartHour,
-    int? customEndHour,
+    String soundId = 'default',
   }) async {
     await initialize();
-    await stopIntervalReminders();
-    
-    _intervalMinutes = intervalMinutes;
+    await stopReminder();
     
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('reminder_enabled', true);
+    await prefs.setBool(ReminderPrefsKeys.reminderEnabled, true);
+    await prefs.setInt(ReminderPrefsKeys.reminderIntervalMinutes, intervalMinutes);
+    await prefs.setString(ReminderPrefsKeys.reminderSound, soundId);
     
-    if (activeTimeSlots != null && activeTimeSlots.isNotEmpty) {
-      await prefs.setStringList(
-        'active_time_slots', 
-        activeTimeSlots.map((e) => e.toString()).toList()
-      );
-    }
+    // Show confirmation notification with selected sound
+    String label = intervalMinutes >= 60 
+        ? '${intervalMinutes ~/ 60} hr${intervalMinutes >= 120 ? 's' : ''}'
+        : '$intervalMinutes min';
+    await _showNotificationWithSound('Reminders Active 🙏', 'Every $label', soundId);
     
-    if (customStartHour != null && customEndHour != null) {
-      await prefs.setInt('custom_start_hour', customStartHour);
-      await prefs.setInt('custom_end_hour', customEndHour);
-    } else {
-      await prefs.remove('custom_start_hour');
-      await prefs.remove('custom_end_hour');
-    }
+    // Schedule periodic alarm
+    await AndroidAlarmManager.periodic(
+      Duration(minutes: intervalMinutes),
+      _alarmId,
+      alarmCallback,
+      exact: true,
+      wakeup: true,
+      rescheduleOnReboot: true,
+      allowWhileIdle: true,
+    );
+  }
+
+  /// Update only the reminder sound (without restarting the timer)
+  Future<void> updateReminderSound(String soundId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(ReminderPrefsKeys.reminderSound, soundId);
+  }
+
+  /// Stop reminder
+  Future<void> stopReminder() async {
+    await AndroidAlarmManager.cancel(_alarmId);
+    await _notifications.cancelAll();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(ReminderPrefsKeys.reminderEnabled, false);
+  }
+
+  /// Restore reminders on app startup
+  Future<void> restoreRemindersIfEnabled() async {
+    await initialize();
     
-    await _showNotification('Reminders Active 🙏', 'Every $intervalMinutes min');
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(ReminderPrefsKeys.reminderEnabled) ?? false;
+    
+    if (!enabled) return;
+    
+    final intervalMinutes = prefs.getInt(ReminderPrefsKeys.reminderIntervalMinutes) ?? 60;
     
     await AndroidAlarmManager.periodic(
       Duration(minutes: intervalMinutes),
@@ -165,31 +204,49 @@ class ReminderService {
     );
   }
 
-  Future<void> stopIntervalReminders() async {
-    await AndroidAlarmManager.cancel(_alarmId);
-    _intervalMinutes = 0;
-    
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('reminder_enabled', false);
-  }
+  /// Show notification with custom sound
+  Future<void> _showNotificationWithSound(String title, String body, String soundId) async {
+    final details = _getChannelDetails(soundId);
+    final channelId = details['channelId'] as String;
+    final channelName = details['channelName'] as String;
+    final rawSound = details['rawSound'] as String?;
 
-  Future<void> _showNotification(String title, String body) async {
+    // Create channel with the custom sound
+    await _notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(
+          AndroidNotificationChannel(
+            channelId,
+            channelName,
+            description: 'Reminders to chant',
+            importance: Importance.max,
+            playSound: true,
+            sound: rawSound != null
+                ? RawResourceAndroidNotificationSound(rawSound)
+                : null,
+          ),
+        );
+
     await _notifications.show(
       0,
       title,
       body,
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
-          'chant_reminders',
-          'Chant Reminders',
+          channelId,
+          channelName,
           importance: Importance.max,
           priority: Priority.max,
+          playSound: true,
+          sound: rawSound != null
+              ? RawResourceAndroidNotificationSound(rawSound)
+              : null,
         ),
       ),
     );
   }
 
-  Future<void> cancelAll() async => stopIntervalReminders();
-  bool get isRunning => _intervalMinutes > 0;
-  int get currentInterval => _intervalMinutes;
+  // Legacy methods
+  Future<void> stopIntervalReminders() async => stopReminder();
+  Future<void> cancelAll() async => stopReminder();
 }

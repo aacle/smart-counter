@@ -147,4 +147,14 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(customTitle: title);
     await _saveSettings();
   }
+
+  Future<void> setReminderSound(String sound) async {
+    state = state.copyWith(reminderSound: sound);
+    await _saveSettings();
+  }
+
+  Future<void> setTapSoundEnabled(bool enabled) async {
+    state = state.copyWith(tapSoundEnabled: enabled);
+    await _saveSettings();
+  }
 }
