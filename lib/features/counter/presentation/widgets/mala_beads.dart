@@ -160,7 +160,7 @@ class _MalaBeadsPainter extends CustomPainter {
     // Draw the Sumeru bead (head bead) at the top
     final sumeruPaint = Paint()
       ..style = PaintingStyle.fill
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [AppColors.primary, AppColors.secondary],

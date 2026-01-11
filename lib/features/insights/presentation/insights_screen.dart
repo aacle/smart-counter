@@ -79,9 +79,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
           // Content
           SliverToBoxAdapter(
             child: insights.isLoading
-                ? const Center(
+                ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(40),
+                      padding: const EdgeInsets.all(40),
                       child: CircularProgressIndicator(color: AppColors.primary),
                     ),
                   )
@@ -158,7 +158,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
         children: [
           Row(
             children: [
-              const Icon(Icons.wb_sunny, color: AppColors.primary, size: 20),
+              Icon(Icons.wb_sunny, color: AppColors.primary, size: 20),
               const SizedBox(width: 8),
               Text(
                 "Today's Practice",
@@ -430,7 +430,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
                 color: AppColors.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.flag_outlined, color: AppColors.primary, size: 24),
+              child: Icon(Icons.flag_outlined, color: AppColors.primary, size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -496,7 +496,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
                   color: AppColors.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.track_changes, color: AppColors.primary, size: 18),
+                child: Icon(Icons.track_changes, color: AppColors.primary, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -998,7 +998,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
                 _buildPeriodContentWithReport(insights.getPeriodStats(30), 'This Month', isWeekly: false),
                 lifetimeStats.when(
                   data: (stats) => _buildLifetimeContent(stats, insights.lifetimeStats),
-                  loading: () => const Center(
+                  loading: () => Center(
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
                   error: (_, __) => _buildPeriodContent(insights.lifetimeStats, 'All Time'),
@@ -1214,7 +1214,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.star, color: AppColors.primary, size: 18),
+                Icon(Icons.star, color: AppColors.primary, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   'Lifetime Journey',

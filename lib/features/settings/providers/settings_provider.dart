@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/theme/colors.dart';
 import '../domain/settings_state.dart';
 
 /// Provider for the settings state
@@ -25,6 +26,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       if (settingsJson != null) {
         final json = jsonDecode(settingsJson) as Map<String, dynamic>;
         state = SettingsState.fromJson(json);
+        // Apply the loaded theme
+        AppColors.setTheme(state.selectedTheme);
       }
     } catch (e) {
       state = SettingsState.defaults();
@@ -157,4 +160,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(tapSoundEnabled: enabled);
     await _saveSettings();
   }
+
+  Future<void> setTheme(AppThemeColor theme) async {
+    AppColors.setTheme(theme);
+    state = state.copyWith(selectedTheme: theme);
+    await _saveSettings();
+  }
 }
+

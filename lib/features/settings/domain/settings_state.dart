@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../core/theme/colors.dart';
 
 /// Type of daily goal - either malas or individual chant counts
 enum GoalType {
@@ -52,6 +53,7 @@ class SettingsState {
   // Customization
   final String customTitle;  // Custom title for counter screen
   final String reminderSound;  // Selected reminder sound file name
+  final AppThemeColor selectedTheme;  // Selected app theme color
   
   const SettingsState({
     required this.hapticEnabled,
@@ -75,6 +77,7 @@ class SettingsState {
     required this.customTitle,
     required this.reminderSound,
     required this.tapSoundEnabled,
+    required this.selectedTheme,
   });
 
   factory SettingsState.defaults() {
@@ -100,6 +103,7 @@ class SettingsState {
       customTitle: 'सुमिरन',
       reminderSound: 'default',  // 'default' uses system sound
       tapSoundEnabled: true,
+      selectedTheme: AppThemeColor.divineGold,
     );
   }
 
@@ -126,6 +130,7 @@ class SettingsState {
     String? customTitle,
     String? reminderSound,
     bool? tapSoundEnabled,
+    AppThemeColor? selectedTheme,
   }) {
     return SettingsState(
       hapticEnabled: hapticEnabled ?? this.hapticEnabled,
@@ -149,6 +154,7 @@ class SettingsState {
       customTitle: customTitle ?? this.customTitle,
       reminderSound: reminderSound ?? this.reminderSound,
       tapSoundEnabled: tapSoundEnabled ?? this.tapSoundEnabled,
+      selectedTheme: selectedTheme ?? this.selectedTheme,
     );
   }
 
@@ -175,6 +181,7 @@ class SettingsState {
       'customTitle': customTitle,
       'reminderSound': reminderSound,
       'tapSoundEnabled': tapSoundEnabled,
+      'selectedTheme': selectedTheme.name,
     };
   }
 
@@ -208,6 +215,10 @@ class SettingsState {
       customTitle: json['customTitle'] as String? ?? 'सुमिरन',
       reminderSound: json['reminderSound'] as String? ?? 'default',
       tapSoundEnabled: json['tapSoundEnabled'] as bool? ?? false,
+      selectedTheme: AppThemeColor.values.firstWhere(
+        (e) => e.name == json['selectedTheme'],
+        orElse: () => AppThemeColor.divineGold,
+      ),
     );
   }
 
@@ -235,7 +246,8 @@ class SettingsState {
         other.goalAchievementCelebrationEnabled == goalAchievementCelebrationEnabled &&
         other.customTitle == customTitle &&
         other.reminderSound == reminderSound &&
-        other.tapSoundEnabled == tapSoundEnabled;
+        other.tapSoundEnabled == tapSoundEnabled &&
+        other.selectedTheme == selectedTheme;
   }
 
   @override
@@ -263,6 +275,7 @@ class SettingsState {
         customTitle,
         reminderSound,
         tapSoundEnabled,
+        selectedTheme,
       ),
     );
   }

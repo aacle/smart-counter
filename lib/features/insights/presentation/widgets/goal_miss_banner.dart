@@ -44,7 +44,7 @@ class GoalMissBanner extends StatelessWidget {
                   color: AppColors.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.trending_down,
                   color: AppColors.primary,
                   size: 18,

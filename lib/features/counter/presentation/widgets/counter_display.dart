@@ -70,7 +70,7 @@ class _CounterDisplayState extends State<CounterDisplay>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.auto_awesome,
                   size: 16,
                   color: AppColors.primary,

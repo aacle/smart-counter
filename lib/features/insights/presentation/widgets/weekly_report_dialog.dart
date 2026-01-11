@@ -53,7 +53,7 @@ class WeeklyReportDialog extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.insights, color: AppColors.primary, size: 28),
+                      Icon(Icons.insights, color: AppColors.primary, size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -266,7 +266,7 @@ class WeeklyReportDialog extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         if (isBest)
-          const Icon(Icons.star, color: AppColors.secondary, size: 12),
+          Icon(Icons.star, color: AppColors.secondary, size: 12),
         Container(
           width: 28,
           height: height < 4 ? 4 : height,

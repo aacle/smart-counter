@@ -13,7 +13,7 @@ class AppTheme {
       brightness: Brightness.dark,
       
       // Color scheme
-      colorScheme: const ColorScheme.dark(
+      colorScheme: ColorScheme.dark(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.surface,
@@ -101,7 +101,7 @@ class AppTheme {
       ),
       
       // Icon theme
-      iconTheme: const IconThemeData(
+      iconTheme: IconThemeData(
         color: AppColors.primary,
         size: 24,
       ),
@@ -119,7 +119,7 @@ class AppTheme {
       ),
       
       // Floating action button
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.background,
       ),

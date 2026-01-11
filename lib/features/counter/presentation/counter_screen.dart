@@ -19,6 +19,7 @@ import '../../insights/providers/insights_provider.dart';
 import '../../insights/presentation/widgets/weekly_report_dialog.dart';
 import '../../insights/presentation/widgets/goal_miss_banner.dart';
 import '../../../services/report_service.dart';
+import '../../../services/feedback_service.dart';
 import 'widgets/mala_beads.dart';
 import 'widgets/counter_display.dart';
 import 'widgets/session_stats.dart';
@@ -37,6 +38,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   final ReminderService _reminderService = ReminderService();
   final HapticService _hapticService = HapticService.instance;
   final SoundService _soundService = SoundService.instance;
+  final FeedbackService _feedbackService = FeedbackService();
   
   StreamSubscription<void>? _volumeSubscription;
   
@@ -69,6 +71,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   Future<void> _initServices() async {
     await _hapticService.initialize();
     await _soundService.initialize();
+    await _feedbackService.initialize();
     
     // Apply initial settings
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -128,6 +131,12 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
         });
       }
       await reportService.markGoalMissChecked();
+    }
+    
+    // Trigger in-app review if eligible (directly shows native dialog)
+    if (_goalMissInfo == null) {
+      final totalMalas = insights.lifetimeStats.totalMalas;
+      await _feedbackService.requestReviewIfEligible(totalMalas);
     }
   }
 
@@ -271,6 +280,88 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     } else {
       _startAutoCount();
     }
+  }
+
+  /// Show info dialog explaining Auto Chant feature
+  void _showAutoChantInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.autorenew, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Text(
+              'How Auto Chant Works',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Enable this to set a continuous rhythm. The app will vibrate or play a tap sound at your set speed, allowing you to chant the mantra internally without needing to touch the screen.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppColors.textSecondary,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Format speed for display (e.g., 0.25s, 0.5s, 1s, 1.5s)
+  String _formatSpeed(double speed) {
+    if (speed == speed.roundToDouble()) {
+      return '${speed.toInt()}s';
+    }
+    return '${speed}s';
+  }
+
+  /// Get the available speed steps
+  static const List<double> _speedSteps = [0.25, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+
+  /// Decrease speed to the previous step
+  double _decreaseSpeed(double currentSpeed) {
+    final currentIndex = _speedSteps.indexOf(currentSpeed);
+    if (currentIndex == -1) {
+      // Find nearest lower step
+      for (int i = _speedSteps.length - 1; i >= 0; i--) {
+        if (_speedSteps[i] < currentSpeed) return _speedSteps[i];
+      }
+      return _speedSteps.first;
+    }
+    return currentIndex > 0 ? _speedSteps[currentIndex - 1] : _speedSteps.first;
+  }
+
+  /// Increase speed to the next step
+  double _increaseSpeed(double currentSpeed) {
+    final currentIndex = _speedSteps.indexOf(currentSpeed);
+    if (currentIndex == -1) {
+      // Find nearest higher step
+      for (int i = 0; i < _speedSteps.length; i++) {
+        if (_speedSteps[i] > currentSpeed) return _speedSteps[i];
+      }
+      return _speedSteps.last;
+    }
+    return currentIndex < _speedSteps.length - 1 ? _speedSteps[currentIndex + 1] : _speedSteps.last;
   }
 
   void _showMalaCelebration() {
@@ -451,15 +542,28 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Auto Count',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Auto Chant',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: _showAutoChantInfoDialog,
+                      child: Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
                 Text(
                   _isAutoCountActive 
-                      ? 'Every ${settings.autoCountSpeed.toStringAsFixed(1)}s'
+                      ? 'Every ${_formatSpeed(settings.autoCountSpeed)}'
                       : 'Automatic chanting mode',
                   style: TextStyle(
                     color: AppColors.textMuted,
@@ -474,13 +578,13 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
             IconButton(
               icon: const Icon(Icons.remove_circle_outline, size: 20),
               color: AppColors.textMuted,
-              onPressed: settings.autoCountSpeed > 1.0 
+              onPressed: settings.autoCountSpeed > 0.25 
                   ? () => ref.read(settingsProvider.notifier)
-                      .setAutoCountSpeed(settings.autoCountSpeed - 0.5)
+                      .setAutoCountSpeed(_decreaseSpeed(settings.autoCountSpeed))
                   : null,
             ),
             Text(
-              '${settings.autoCountSpeed.toStringAsFixed(1)}s',
+              _formatSpeed(settings.autoCountSpeed),
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -491,7 +595,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
               color: AppColors.textMuted,
               onPressed: settings.autoCountSpeed < 5.0
                   ? () => ref.read(settingsProvider.notifier)
-                      .setAutoCountSpeed(settings.autoCountSpeed + 0.5)
+                      .setAutoCountSpeed(_increaseSpeed(settings.autoCountSpeed))
                   : null,
             ),
           ],

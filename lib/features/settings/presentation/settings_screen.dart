@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/theme/colors.dart';
+import '../../../services/feedback_service.dart';
 import '../domain/settings_state.dart';
 import '../providers/settings_provider.dart';
 import 'widgets/settings_tile.dart';
@@ -94,6 +95,22 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _showCustomTitleDialog(context, ref, settings.customTitle),
             trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
           ),
+          
+          SettingsTile(
+            icon: Icons.palette,
+            title: 'Theme Color',
+            subtitle: '${settings.selectedTheme.emoji} ${settings.selectedTheme.displayName}',
+            onTap: () => _showThemePickerDialog(context, ref, settings.selectedTheme),
+            trailing: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: ThemeColorPalette.forTheme(settings.selectedTheme).primary,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.textMuted, width: 1),
+              ),
+            ),
+          ),
 
           // === GOALS ===
           const SettingsSection(title: 'Goals'),
@@ -162,6 +179,14 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.code,
             title: 'Developer',
             subtitle: 'Made with ❤️ for spiritual practice',
+          ),
+          
+          SettingsTile(
+            icon: Icons.star_rounded,
+            title: 'Rate Us',
+            subtitle: 'Love the app? Please rate us!',
+            onTap: () => FeedbackService().openStoreForRating(),
+            trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
           ),
 
           const SizedBox(height: 40),
@@ -294,6 +319,113 @@ class SettingsScreen extends ConsumerWidget {
             child: const Text('Save'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showThemePickerDialog(BuildContext context, WidgetRef ref, AppThemeColor currentTheme) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Theme Color', style: Theme.of(context).textTheme.headlineMedium),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Choose your preferred accent color',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Theme grid
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: AppThemeColor.values.map((theme) {
+                final isSelected = theme == currentTheme;
+                final palette = ThemeColorPalette.forTheme(theme);
+                
+                return GestureDetector(
+                  onTap: () {
+                    ref.read(settingsProvider.notifier).setTheme(theme);
+                    Navigator.pop(context);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 72,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected 
+                          ? palette.primary.withValues(alpha: 0.2)
+                          : AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected 
+                            ? palette.primary
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Color circle
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: palette.primary,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: palette.primary.withValues(alpha: 0.4),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: isSelected
+                              ? Icon(
+                                  Icons.check,
+                                  color: theme == AppThemeColor.pureWhite 
+                                      ? Colors.black 
+                                      : Colors.white,
+                                  size: 20,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 8),
+                        // Theme name
+                        Text(
+                          theme.emoji,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          theme.displayName.split(' ').last,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isSelected 
+                                ? palette.primary 
+                                : AppColors.textSecondary,
+                            fontWeight: isSelected 
+                                ? FontWeight.w600 
+                                : FontWeight.normal,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ),
     );
   }
