@@ -94,7 +94,7 @@ class ReportService {
     await prefs.setString(_lastGoalMissCheckKey, DateTime.now().toIso8601String());
   }
 
-  /// Get yesterday's goal achievement info
+  /// Get yesterday's goal achievement info (shows progress even if 0)
   GoalMissInfo? checkYesterdayGoal(
     List<DailyStats> recentStats,
     SettingsState settings,
@@ -103,6 +103,11 @@ class ReportService {
     
     // Index 0 is today, index 1 is yesterday
     final yesterday = recentStats[1];
+    
+    // Check if this is a fresh install (user has NEVER practiced before)
+    // Only skip if there's no historical activity at all
+    final hasAnyHistory = recentStats.any((day) => day.counts > 0);
+    if (!hasAnyHistory) return null; // Fresh install, no data yet
     
     final bool isCountGoal = settings.goalType == GoalType.counts;
     final int goalValue = isCountGoal ? settings.dailyGoalCount : settings.dailyGoal;

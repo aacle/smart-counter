@@ -114,3 +114,11 @@ firebase_options.dart
 # Custom project files (if any)
 *.sqlite
 *.db
+
+# Backup and test data files
+smartnaamjap_backup_*.json
+smartnaamjap_testdata_*.json
+
+# Local helper scripts
+build_app.sh
+ship.sh

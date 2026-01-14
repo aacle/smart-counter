@@ -20,7 +20,7 @@ class SmartNaamJapApp extends ConsumerWidget {
     AppColors.setTheme(selectedTheme);
     
     return MaterialApp(
-      title: 'Smart Naam Jap',
+      title: 'Nam Jap Counter - नाम जप',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: const CounterScreen(),

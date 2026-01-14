@@ -56,7 +56,7 @@ class GoalMissBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Yesterday\'s Practice',
+                      'Yesterday\'s Progress',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,

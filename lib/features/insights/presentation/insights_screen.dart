@@ -1188,17 +1188,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildStatColumn(
-                _formatNumber(lifetime.totalCounts + allTime.totalCounts),
+                _formatNumber(allTime.totalCounts),
                 'Total Counts',
                 Icons.touch_app,
               ),
               _buildStatColumn(
-                (lifetime.totalMalas + allTime.totalMalas).toString(),
+                allTime.totalMalas.toString(),
                 'Total Malas',
                 Icons.all_inclusive,
               ),
               _buildStatColumn(
-                (lifetime.totalSessions + allTime.totalSessions).toString(),
+                allTime.totalSessions.toString(),
                 'Sessions',
                 Icons.play_circle_outline,
               ),
