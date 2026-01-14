@@ -7,7 +7,7 @@ import '../domain/settings_state.dart';
 import '../providers/settings_provider.dart';
 import 'widgets/settings_tile.dart';
 
-/// Settings screen with counting options and about section
+/// Settings screen with counting options  and about section
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
