@@ -678,6 +678,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
           currentCount: counterState.count,
           showCelebration: _showCelebration,
           size: beadSize,
+          centerImagePath: settings.centerImagePath,
         ),
         
         const SizedBox(height: 16),
@@ -711,6 +712,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
           currentCount: counterState.count,
           showCelebration: _showCelebration,
           size: beadSize,
+          centerImagePath: settings.centerImagePath,
         ),
         
         const SizedBox(height: 24),

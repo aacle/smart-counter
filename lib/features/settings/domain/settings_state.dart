@@ -54,6 +54,7 @@ class SettingsState {
   final String customTitle;  // Custom title for counter screen
   final String reminderSound;  // Selected reminder sound file name
   final AppThemeColor selectedTheme;  // Selected app theme color
+  final String? centerImagePath;  // Path to custom deity image in mala center
   
   const SettingsState({
     required this.hapticEnabled,
@@ -78,6 +79,7 @@ class SettingsState {
     required this.reminderSound,
     required this.tapSoundEnabled,
     required this.selectedTheme,
+    this.centerImagePath,
   });
 
   factory SettingsState.defaults() {
@@ -104,6 +106,7 @@ class SettingsState {
       reminderSound: 'default',  // 'default' uses system sound
       tapSoundEnabled: true,
       selectedTheme: AppThemeColor.divineGold,
+      centerImagePath: null,
     );
   }
 
@@ -131,6 +134,8 @@ class SettingsState {
     String? reminderSound,
     bool? tapSoundEnabled,
     AppThemeColor? selectedTheme,
+    String? centerImagePath,
+    bool clearCenterImage = false,
   }) {
     return SettingsState(
       hapticEnabled: hapticEnabled ?? this.hapticEnabled,
@@ -155,6 +160,7 @@ class SettingsState {
       reminderSound: reminderSound ?? this.reminderSound,
       tapSoundEnabled: tapSoundEnabled ?? this.tapSoundEnabled,
       selectedTheme: selectedTheme ?? this.selectedTheme,
+      centerImagePath: clearCenterImage ? null : (centerImagePath ?? this.centerImagePath),
     );
   }
 
@@ -182,6 +188,7 @@ class SettingsState {
       'reminderSound': reminderSound,
       'tapSoundEnabled': tapSoundEnabled,
       'selectedTheme': selectedTheme.name,
+      'centerImagePath': centerImagePath,
     };
   }
 
@@ -219,6 +226,7 @@ class SettingsState {
         (e) => e.name == json['selectedTheme'],
         orElse: () => AppThemeColor.divineGold,
       ),
+      centerImagePath: json['centerImagePath'] as String?,
     );
   }
 
@@ -247,7 +255,8 @@ class SettingsState {
         other.customTitle == customTitle &&
         other.reminderSound == reminderSound &&
         other.tapSoundEnabled == tapSoundEnabled &&
-        other.selectedTheme == selectedTheme;
+        other.selectedTheme == selectedTheme &&
+        other.centerImagePath == centerImagePath;
   }
 
   @override
@@ -276,6 +285,7 @@ class SettingsState {
         reminderSound,
         tapSoundEnabled,
         selectedTheme,
+        centerImagePath,
       ),
     );
   }

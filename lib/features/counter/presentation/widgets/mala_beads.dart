@@ -1,43 +1,83 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/colors.dart';
 
-/// Beautiful animated 108-bead mala visualization
-/// Uses CustomPainter for smooth 60fps rendering
+/// 108-bead mala visualization with smooth animated glow
+/// Uses CustomPainter for smooth rendering
 class MalaBeads extends StatefulWidget {
   final int currentCount;
   final double size;
   final bool showCelebration;
+  final String? centerImagePath;
 
   const MalaBeads({
     super.key,
     required this.currentCount,
     this.size = 300,
     this.showCelebration = false,
+    this.centerImagePath,
   });
 
   @override
   State<MalaBeads> createState() => _MalaBeadsState();
 }
 
-class _MalaBeadsState extends State<MalaBeads>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _glowController;
+class _MalaBeadsState extends State<MalaBeads> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _positionAnimation;
+  int _previousBead = 0;
 
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
+    _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 150),
+    );
+    _previousBead = widget.currentCount % kMalaSize;
+    _positionAnimation = AlwaysStoppedAnimation(_previousBead.toDouble());
+  }
+
+  @override
+  void didUpdateWidget(MalaBeads oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newBead = widget.currentCount % kMalaSize;
+    
+    if (newBead != _previousBead) {
+      double startPos = _previousBead.toDouble();
+      double endPos = newBead.toDouble();
+      
+      // Handle wrap-around: when going from 107 to 0, continue forward
+      if (_previousBead > 100 && newBead == 0) {
+        // Complete the circle by going to 108 (same as 0)
+        endPos = kMalaSize.toDouble();
+      }
+      
+      _positionAnimation = Tween<double>(
+        begin: startPos,
+        end: endPos,
+      ).animate(CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      ));
+      
+      _animationController.forward(from: 0).then((_) {
+        // After animation completes, reset to actual position
+        if (endPos >= kMalaSize) {
+          _positionAnimation = AlwaysStoppedAnimation(0);
+        }
+      });
+      
+      _previousBead = newBead;
+    }
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -51,15 +91,16 @@ class _MalaBeadsState extends State<MalaBeads>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Glow effect behind current bead
+          // Smooth animated glow ball
           AnimatedBuilder(
-            animation: _glowController,
+            animation: _positionAnimation,
             builder: (context, child) {
               return CustomPaint(
                 size: Size(widget.size, widget.size),
                 painter: _BeadGlowPainter(
                   currentBead: currentBead,
-                  glowIntensity: 0.3 + (_glowController.value * 0.4),
+                  animatedPosition: _positionAnimation.value % kMalaSize,
+                  glowIntensity: 0.6,
                 ),
               );
             },
@@ -72,32 +113,71 @@ class _MalaBeadsState extends State<MalaBeads>
               completedBeads: widget.currentCount,
             ),
           ),
-          // Center content
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Current count within mala
-              Text(
-                '${currentBead == 0 && widget.currentCount > 0 ? kMalaSize : currentBead}',
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w300,
-                    ),
-              ),
-              Text(
-                'of $kMalaSize',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textMuted,
-                    ),
-              ),
-            ],
-          ),
+          // Center content with optional deity image
+          _buildCenterContent(context, currentBead),
           // Celebration overlay
           if (widget.showCelebration)
             const _CelebrationOverlay()
                 .animate()
                 .fadeIn(duration: 300.ms)
                 .scale(begin: const Offset(0.8, 0.8)),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildCenterContent(BuildContext context, int currentBead) {
+    final hasImage = widget.centerImagePath != null && 
+                     File(widget.centerImagePath!).existsSync();
+    
+    // Calculate the inner circle size - fills the bead circle
+    final innerSize = widget.size * 0.72;
+    
+    // If image is set, show only the image (no count text)
+    if (hasImage) {
+      return Container(
+        width: innerSize,
+        height: innerSize,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          image: DecorationImage(
+            image: FileImage(File(widget.centerImagePath!)),
+            fit: BoxFit.cover,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.3),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Default: show count text (no image)
+    return SizedBox(
+      width: innerSize,
+      height: innerSize,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Current count within mala
+          Text(
+            '${currentBead == 0 && widget.currentCount > 0 ? kMalaSize : currentBead}',
+            style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w300,
+                ),
+          ),
+          Text(
+            'of $kMalaSize',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textMuted,
+                ),
+          ),
         ],
       ),
     );
@@ -117,8 +197,10 @@ class _MalaBeadsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width / 2) - 20;
-    final beadRadius = (radius * math.pi * 2) / (kMalaSize * 3);
+    // Slightly tighter circle
+    final radius = (size.width / 2) - 16;
+    // Slightly smaller beads for cleaner look
+    final beadRadius = (radius * math.pi * 2) / (kMalaSize * 3.5);
 
     // Paint each bead
     for (int i = 0; i < kMalaSize; i++) {
@@ -139,9 +221,9 @@ class _MalaBeadsPainter extends CustomPainter {
                 ? AppColors.beadActive.withValues(alpha: 0.6)
                 : AppColors.beadInactive;
 
-      // Draw bead
+      // Draw bead - subtle quarter marks (only 10% larger, not 30%)
       final actualBeadRadius =
-          isQuarterMark ? beadRadius * 1.3 : beadRadius;
+          isQuarterMark ? beadRadius * 1.1 : beadRadius;
       canvas.drawCircle(Offset(x, y), actualBeadRadius, paint);
 
       // Draw highlight on current bead
@@ -168,9 +250,10 @@ class _MalaBeadsPainter extends CustomPainter {
         Rect.fromCircle(center: Offset(center.dx, center.dy - radius), radius: beadRadius * 2),
       );
 
+    // Draw the Sumeru bead (head bead) at the top - smaller
     canvas.drawCircle(
       Offset(center.dx, center.dy - radius),
-      beadRadius * 2,
+      beadRadius * 1.5,
       sumeruPaint,
     );
   }
@@ -182,25 +265,31 @@ class _MalaBeadsPainter extends CustomPainter {
   }
 }
 
-/// Custom painter for the glow effect
+/// Custom painter for the glow effect with smooth animation
 class _BeadGlowPainter extends CustomPainter {
   final int currentBead;
+  final double animatedPosition;
   final double glowIntensity;
 
   _BeadGlowPainter({
     required this.currentBead,
+    this.animatedPosition = 0,
     required this.glowIntensity,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width / 2) - 20;
+    // Match radius from beads painter
+    final radius = (size.width / 2) - 16;
 
-    final angle = (currentBead / kMalaSize) * 2 * math.pi - (math.pi / 2);
+    // Use animatedPosition for smooth movement
+    final position = animatedPosition;
+    final angle = (position / kMalaSize) * 2 * math.pi - (math.pi / 2);
     final x = center.dx + radius * math.cos(angle);
     final y = center.dy + radius * math.sin(angle);
 
+    // Outer glow
     final glowPaint = Paint()
       ..style = PaintingStyle.fill
       ..shader = RadialGradient(
@@ -209,15 +298,28 @@ class _BeadGlowPainter extends CustomPainter {
           AppColors.glow.withValues(alpha: 0),
         ],
       ).createShader(
-        Rect.fromCircle(center: Offset(x, y), radius: 30),
+        Rect.fromCircle(center: Offset(x, y), radius: 18),
       );
+    canvas.drawCircle(Offset(x, y), 18, glowPaint);
 
-    canvas.drawCircle(Offset(x, y), 30, glowPaint);
+    // Border ring around the glow ball
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..color = AppColors.primary;
+    canvas.drawCircle(Offset(x, y), 10, borderPaint);
+
+    // Solid center dot
+    final centerPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = AppColors.primary;
+    canvas.drawCircle(Offset(x, y), 5, centerPaint);
   }
 
   @override
   bool shouldRepaint(covariant _BeadGlowPainter oldDelegate) {
     return oldDelegate.currentBead != currentBead ||
+        oldDelegate.animatedPosition != animatedPosition ||
         oldDelegate.glowIntensity != glowIntensity;
   }
 }

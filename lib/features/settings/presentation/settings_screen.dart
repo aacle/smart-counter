@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/theme/colors.dart';
 import '../../../services/feedback_service.dart';
@@ -110,6 +113,29 @@ class SettingsScreen extends ConsumerWidget {
                 border: Border.all(color: AppColors.textMuted, width: 1),
               ),
             ),
+          ),
+          
+          SettingsTile(
+            icon: Icons.image,
+            title: 'Center Image',
+            subtitle: settings.centerImagePath != null 
+                ? 'Deity image set ✓' 
+                : 'Add god/guru image in mala',
+            onTap: () => _showCenterImageDialog(context, ref, settings.centerImagePath),
+            trailing: settings.centerImagePath != null 
+                ? Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      image: DecorationImage(
+                        image: FileImage(File(settings.centerImagePath!)),
+                        fit: BoxFit.cover,
+                      ),
+                      border: Border.all(color: AppColors.primary, width: 2),
+                    ),
+                  )
+                : Icon(Icons.chevron_right, color: AppColors.textMuted),
           ),
 
           // === GOALS ===
@@ -426,6 +452,149 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCenterImageDialog(BuildContext context, WidgetRef ref, String? currentImagePath) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Center Image', style: Theme.of(context).textTheme.headlineMedium),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Add an image of your favorite deity/guru to display inside the mala circle',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textMuted,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            // Preview current image if set
+            if (currentImagePath != null)
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  image: DecorationImage(
+                    image: FileImage(File(currentImagePath)),
+                    fit: BoxFit.cover,
+                  ),
+                  border: Border.all(color: AppColors.primary, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.surface,
+                  border: Border.all(color: AppColors.textMuted, width: 2),
+                ),
+                child: Icon(
+                  Icons.self_improvement,
+                  size: 48,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            const SizedBox(height: 24),
+            // Choose from gallery button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final picker = ImagePicker();
+                  final pickedFile = await picker.pickImage(
+                    source: ImageSource.gallery,
+                    maxWidth: 1024,
+                    maxHeight: 1024,
+                    imageQuality: 95,
+                  );
+                  
+                  if (pickedFile != null) {
+                    // Copy to app documents directory for persistence
+                    final appDir = await getApplicationDocumentsDirectory();
+                    
+                    // Delete old image if it exists
+                    if (currentImagePath != null) {
+                      final oldFile = File(currentImagePath);
+                      if (oldFile.existsSync()) {
+                        await oldFile.delete();
+                      }
+                    }
+                    
+                    // Use unique filename with timestamp to avoid caching issues
+                    final timestamp = DateTime.now().millisecondsSinceEpoch;
+                    final fileName = 'deity_image_$timestamp.jpg';
+                    final savedPath = '${appDir.path}/$fileName';
+                    
+                    // Copy the picked image to permanent location
+                    await File(pickedFile.path).copy(savedPath);
+                    
+                    // Save path to settings
+                    ref.read(settingsProvider.notifier).setCenterImage(savedPath);
+                    
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  }
+                },
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Choose from Gallery'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            // Remove image button (only if image is set)
+            if (currentImagePath != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    // Delete the saved image file
+                    final file = File(currentImagePath);
+                    if (file.existsSync()) {
+                      file.deleteSync();
+                    }
+                    // Clear from settings
+                    ref.read(settingsProvider.notifier).clearCenterImage();
+                    Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Remove Image'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade400,
+                    side: BorderSide(color: Colors.red.shade400),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }

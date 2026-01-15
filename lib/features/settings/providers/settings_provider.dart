@@ -166,5 +166,15 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(selectedTheme: theme);
     await _saveSettings();
   }
+
+  Future<void> setCenterImage(String path) async {
+    state = state.copyWith(centerImagePath: path);
+    await _saveSettings();
+  }
+
+  Future<void> clearCenterImage() async {
+    state = state.copyWith(clearCenterImage: true);
+    await _saveSettings();
+  }
 }
 

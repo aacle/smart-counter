@@ -187,34 +187,45 @@ class _CounterDisplayState extends State<CounterDisplay>
           child: child,
         );
       },
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 150),
-        transitionBuilder: (child, animation) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.2),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            )),
-            child: FadeTransition(
-              opacity: animation,
-              child: child,
+      child: _buildOdometerDigits(theme, fontSize: fontSize, isPrimary: isPrimary),
+    );
+  }
+
+  /// iPhone-style odometer animation - each digit animates independently
+  Widget _buildOdometerDigits(ThemeData theme, {double fontSize = 64, bool isPrimary = false}) {
+    final countStr = _formatCount(widget.count);
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(countStr.length, (index) {
+        final char = countStr[index];
+        final isDigit = RegExp(r'\d').hasMatch(char);
+        
+        // For non-digits (comma, K, M, etc.), just show static text
+        if (!isDigit) {
+          return Text(
+            char,
+            style: theme.textTheme.displayLarge?.copyWith(
+              color: isPrimary ? AppColors.primary : AppColors.textPrimary,
+              fontWeight: isPrimary ? FontWeight.w300 : FontWeight.w200,
+              fontSize: fontSize,
+              letterSpacing: -2,
             ),
           );
-        },
-        child: Text(
-          _formatCount(widget.count),
-          key: ValueKey(widget.count),
+        }
+        
+        // For digits, use animated switcher for that position
+        return _AnimatedDigit(
+          digit: char,
           style: theme.textTheme.displayLarge?.copyWith(
             color: isPrimary ? AppColors.primary : AppColors.textPrimary,
             fontWeight: isPrimary ? FontWeight.w300 : FontWeight.w200,
             fontSize: fontSize,
             letterSpacing: -2,
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 
@@ -230,5 +241,55 @@ class _CounterDisplayState extends State<CounterDisplay>
           );
     }
     return count.toString();
+  }
+}
+
+/// Single animated digit with slide-up effect
+class _AnimatedDigit extends StatelessWidget {
+  final String digit;
+  final TextStyle? style;
+
+  const _AnimatedDigit({
+    required this.digit,
+    this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, animation) {
+          // Determine if this is the entering or exiting widget
+          final isEntering = child.key == ValueKey(digit);
+          
+          final slideAnimation = Tween<Offset>(
+            begin: isEntering 
+                ? const Offset(0, 1.0)   // New digit slides up from below
+                : const Offset(0, -1.0), // Old digit slides up and out
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          ));
+          
+          return SlideTransition(
+            position: slideAnimation,
+            child: FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: const Interval(0.0, 0.8), // Fade slightly faster
+              ),
+              child: child,
+            ),
+          );
+        },
+        child: Text(
+          digit,
+          key: ValueKey(digit),
+          style: style,
+        ),
+      ),
+    );
   }
 }
