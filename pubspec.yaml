@@ -59,6 +59,9 @@ dependencies:
   
   # In-App Review
   in_app_review: ^2.0.10
+  
+  # Image Picker (for deity image in mala center)
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
