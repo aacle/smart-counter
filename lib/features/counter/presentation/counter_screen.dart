@@ -18,6 +18,7 @@ import '../../insights/presentation/insights_screen.dart';
 import '../../insights/providers/insights_provider.dart';
 import '../../insights/presentation/widgets/weekly_report_dialog.dart';
 import '../../insights/presentation/widgets/goal_miss_banner.dart';
+import '../../common/rate_us_dialog.dart';
 import '../../../services/report_service.dart';
 import '../../../services/feedback_service.dart';
 import 'widgets/mala_beads.dart';
@@ -132,11 +133,17 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
       }
       await reportService.markGoalMissChecked();
     }
-    
-    // Trigger in-app review if eligible (directly shows native dialog)
-    if (_goalMissInfo == null) {
+    // Show rate-us dialog if eligible
+    // Set debugForceShow: true to test the popup in debug mode
+    if (_goalMissInfo == null && mounted) {
       final totalMalas = insights.lifetimeStats.totalMalas;
-      await _feedbackService.requestReviewIfEligible(totalMalas);
+      final shouldShow = await _feedbackService.shouldShowRateUsDialog(
+        totalMalas,
+        debugForceShow: false, // Set to true to test
+      );
+      if (shouldShow && mounted) {
+        await RateUsDialog.show(context);
+      }
     }
   }
 
@@ -189,9 +196,20 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.paused) {
+      // Pause jap timer and flush accumulated time to insights
+      ref.read(counterProvider.notifier).pauseJapTimer();
+      _flushJapTimeToInsights();
       ref.read(counterProvider.notifier).saveNow();
       ref.read(insightsProvider.notifier).saveNow();
       _stopAutoCount();
+    }
+  }
+
+  /// Flush current jap time to daily insights stats
+  void _flushJapTimeToInsights() {
+    final japSeconds = ref.read(counterProvider.notifier).japDurationSeconds;
+    if (japSeconds > 0) {
+      ref.read(insightsProvider.notifier).recordJapTime(japSeconds);
     }
   }
 
@@ -228,6 +246,12 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     
     // Record count for daily insights
     ref.read(insightsProvider.notifier).recordCount();
+    
+    // Flush jap time to insights periodically (every 5 counts)
+    final newCount = ref.read(counterProvider).count;
+    if (newCount % 5 == 0) {
+      _flushJapTimeToInsights();
+    }
     
     // Trigger haptic feedback if enabled
     if (settings.hapticEnabled) {
@@ -409,6 +433,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
           ),
           ElevatedButton(
             onPressed: () {
+              // Flush jap time to insights before resetting
+              _flushJapTimeToInsights();
               ref.read(counterProvider.notifier).resetSession();
               Navigator.pop(context);
             },

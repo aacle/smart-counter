@@ -2,20 +2,44 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/theme/colors.dart';
 import '../../../services/feedback_service.dart';
 import '../domain/settings_state.dart';
 import '../providers/settings_provider.dart';
+import 'reminder_setup_screen.dart';
 import 'widgets/settings_tile.dart';
 
-/// Settings screen with counting options  and about section
-class SettingsScreen extends ConsumerWidget {
+/// Settings screen with counting options and about section
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  String _appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = '${info.version}+${info.buildNumber}';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
 
     return Scaffold(
@@ -29,193 +53,311 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
       body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          // === COUNTING OPTIONS ===
-          const SettingsSection(title: 'Counting'),
-          
-          SettingsTile(
-            icon: Icons.vibration,
-            title: 'Haptic Feedback',
-            subtitle: 'Vibrate on each count',
-            switchValue: settings.hapticEnabled,
-            onSwitchChanged: (value) {
-              ref.read(settingsProvider.notifier).setHapticEnabled(value);
-            },
-          ),
-          
-          SettingsTile(
-            icon: Icons.music_note,
-            title: 'Tap Sound',
-            subtitle: 'Play sound on each count',
-            switchValue: settings.tapSoundEnabled,
-            onSwitchChanged: (value) {
-              ref.read(settingsProvider.notifier).setTapSoundEnabled(value);
-            },
-          ),
-          
-          SettingsTile(
-            icon: Icons.volume_up,
-            title: 'Volume Button Counting',
-            subtitle: 'Use volume keys to count',
-            switchValue: settings.volumeRockerEnabled,
-            onSwitchChanged: (value) {
-              ref.read(settingsProvider.notifier).setVolumeRockerEnabled(value);
-            },
-          ),
-          
-          SettingsTile(
-            icon: Icons.light_mode,
-            title: 'Keep Screen Awake',
-            subtitle: 'Prevent screen from dimming',
-            switchValue: settings.keepScreenAwake,
-            onSwitchChanged: (value) {
-              ref.read(settingsProvider.notifier).setKeepScreenAwake(value);
-              if (value) {
-                WakelockPlus.enable();
-              } else {
-                WakelockPlus.disable();
-              }
-            },
+          const SizedBox(height: 8),
+
+          // === PRACTICE SETTINGS ===
+          _buildSettingsGroup(
+            context,
+            icon: Icons.self_improvement,
+            title: 'Practice',
+            children: [
+              SettingsTile(
+                icon: Icons.vibration,
+                title: 'Haptic Feedback',
+                subtitle: 'Vibrate on each count',
+                switchValue: settings.hapticEnabled,
+                onSwitchChanged: (value) {
+                  ref.read(settingsProvider.notifier).setHapticEnabled(value);
+                },
+              ),
+              SettingsTile(
+                icon: Icons.music_note,
+                title: 'Tap Sound',
+                subtitle: 'Play sound on each count',
+                switchValue: settings.tapSoundEnabled,
+                onSwitchChanged: (value) {
+                  ref.read(settingsProvider.notifier).setTapSoundEnabled(value);
+                },
+              ),
+              SettingsTile(
+                icon: Icons.volume_up,
+                title: 'Volume Button Counting',
+                subtitle: 'Use volume keys to count',
+                switchValue: settings.volumeRockerEnabled,
+                onSwitchChanged: (value) {
+                  ref.read(settingsProvider.notifier).setVolumeRockerEnabled(value);
+                },
+              ),
+              SettingsTile(
+                icon: Icons.light_mode,
+                title: 'Keep Screen Awake',
+                subtitle: 'Prevent screen from dimming',
+                switchValue: settings.keepScreenAwake,
+                onSwitchChanged: (value) {
+                  ref.read(settingsProvider.notifier).setKeepScreenAwake(value);
+                  if (value) {
+                    WakelockPlus.enable();
+                  } else {
+                    WakelockPlus.disable();
+                  }
+                },
+              ),
+            ],
           ),
 
-          // === INTERFACE ===
-          const SettingsSection(title: 'Interface'),
+          const SizedBox(height: 12),
 
-          SettingsTile(
-            icon: Icons.view_comfortable,
-            title: 'Display Mode',
-            subtitle: settings.interfaceMode == InterfaceMode.malaWise
-                ? 'Mala-wise (108 beads focus)'
-                : 'Count-wise (total focus)',
-            onTap: () => _showInterfaceModeDialog(context, ref, settings.interfaceMode),
-            trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+          // === APPEARANCE ===
+          _buildSettingsGroup(
+            context,
+            icon: Icons.palette_outlined,
+            title: 'Appearance',
+            children: [
+              SettingsTile(
+                icon: Icons.view_comfortable,
+                title: 'Display Mode',
+                subtitle: settings.interfaceMode == InterfaceMode.malaWise
+                    ? 'Mala-wise (108 beads focus)'
+                    : 'Count-wise (total focus)',
+                onTap: () => _showInterfaceModeDialog(context, settings.interfaceMode),
+                trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+              ),
+              SettingsTile(
+                icon: Icons.title,
+                title: 'Custom Title',
+                subtitle: settings.customTitle.isEmpty ? 'Set a custom title' : settings.customTitle,
+                onTap: () => _showCustomTitleDialog(context, settings.customTitle),
+                trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+              ),
+              SettingsTile(
+                icon: Icons.palette,
+                title: 'Theme Color',
+                subtitle: '${settings.selectedTheme.emoji} ${settings.selectedTheme.displayName}',
+                onTap: () => _showThemePickerDialog(context, settings.selectedTheme),
+                trailing: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: ThemeColorPalette.forTheme(settings.selectedTheme).primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.textMuted, width: 1),
+                  ),
+                ),
+              ),
+              SettingsTile(
+                icon: Icons.image,
+                title: 'Center Image',
+                subtitle: settings.centerImagePath != null 
+                    ? 'Deity image set ✓' 
+                    : 'Add god/guru image in mala',
+                onTap: () => _showCenterImageDialog(context, settings.centerImagePath),
+                trailing: settings.centerImagePath != null 
+                    ? Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          image: DecorationImage(
+                            image: FileImage(File(settings.centerImagePath!)),
+                            fit: BoxFit.cover,
+                          ),
+                          border: Border.all(color: AppColors.primary, width: 2),
+                        ),
+                      )
+                    : Icon(Icons.chevron_right, color: AppColors.textMuted),
+              ),
+            ],
           ),
-          
-          SettingsTile(
-            icon: Icons.title,
-            title: 'Custom Title',
-            subtitle: settings.customTitle.isEmpty ? 'Set a custom title' : settings.customTitle,
-            onTap: () => _showCustomTitleDialog(context, ref, settings.customTitle),
-            trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+
+          const SizedBox(height: 12),
+
+          // === GOALS ===
+          _buildSettingsGroup(
+            context,
+            icon: Icons.flag_outlined,
+            title: 'Goals',
+            children: [
+              SettingsTile(
+                icon: Icons.category,
+                title: 'Goal Type',
+                subtitle: settings.goalType == GoalType.malas
+                    ? 'Track by Malas (108 counts)'
+                    : 'Track by Chant Counts',
+                onTap: () => _showGoalTypeDialog(context, settings.goalType),
+                trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+              ),
+              SettingsTile(
+                icon: Icons.flag,
+                title: 'Daily Goal',
+                subtitle: _getGoalSubtitle(settings),
+                onTap: () => _showDailyGoalDialog(context, settings),
+                trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+              ),
+            ],
           ),
-          
-          SettingsTile(
-            icon: Icons.palette,
-            title: 'Theme Color',
-            subtitle: '${settings.selectedTheme.emoji} ${settings.selectedTheme.displayName}',
-            onTap: () => _showThemePickerDialog(context, ref, settings.selectedTheme),
-            trailing: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: ThemeColorPalette.forTheme(settings.selectedTheme).primary,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.textMuted, width: 1),
+
+          const SizedBox(height: 12),
+
+          // === NOTIFICATIONS ===
+          _buildSettingsGroup(
+            context,
+            icon: Icons.notifications_outlined,
+            title: 'Notifications',
+            children: [
+              SettingsTile(
+                icon: Icons.date_range,
+                title: 'Weekly Progress Report',
+                subtitle: 'Show weekly summary on app open',
+                switchValue: settings.weeklyReportEnabled,
+                onSwitchChanged: (value) {
+                  ref.read(settingsProvider.notifier).setWeeklyReportEnabled(value);
+                },
+              ),
+              SettingsTile(
+                icon: Icons.calendar_month,
+                title: 'Monthly Progress Report',
+                subtitle: 'Show monthly summary on app open',
+                switchValue: settings.monthlyReportEnabled,
+                onSwitchChanged: (value) {
+                  ref.read(settingsProvider.notifier).setMonthlyReportEnabled(value);
+                },
+              ),
+              SettingsTile(
+                icon: Icons.trending_down,
+                title: 'Goal Miss Reminder',
+                subtitle: 'Remind when yesterday\'s goal was missed',
+                switchValue: settings.goalMissNotificationEnabled,
+                onSwitchChanged: (value) {
+                  ref.read(settingsProvider.notifier).setGoalMissNotificationEnabled(value);
+                },
+              ),
+              SettingsTile(
+                icon: Icons.alarm,
+                title: 'Practice Reminders',
+                subtitle: settings.reminderEnabled 
+                    ? 'Every ${settings.reminderIntervalMinutes} min'
+                    : 'Off',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ReminderSetupScreen()),
+                ),
+                trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // === RATE US (Prominent standalone) ===
+          Material(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              onTap: () => FeedbackService().openStoreForRating(),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.star_rounded, color: AppColors.primary, size: 28),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Enjoying Smart Naam Jap?',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Rate us on Play Store ⭐',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: AppColors.primary),
+                  ],
+                ),
               ),
             ),
           ),
-          
-          SettingsTile(
-            icon: Icons.image,
-            title: 'Center Image',
-            subtitle: settings.centerImagePath != null 
-                ? 'Deity image set ✓' 
-                : 'Add god/guru image in mala',
-            onTap: () => _showCenterImageDialog(context, ref, settings.centerImagePath),
-            trailing: settings.centerImagePath != null 
-                ? Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      image: DecorationImage(
-                        image: FileImage(File(settings.centerImagePath!)),
-                        fit: BoxFit.cover,
-                      ),
-                      border: Border.all(color: AppColors.primary, width: 2),
-                    ),
-                  )
-                : Icon(Icons.chevron_right, color: AppColors.textMuted),
-          ),
 
-          // === GOALS ===
-          const SettingsSection(title: 'Goals'),
-          
-          SettingsTile(
-            icon: Icons.category,
-            title: 'Goal Type',
-            subtitle: settings.goalType == GoalType.malas
-                ? 'Track by Malas (108 counts)'
-                : 'Track by Chant Counts',
-            onTap: () => _showGoalTypeDialog(context, ref, settings.goalType),
-            trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
-          ),
-          
-          SettingsTile(
-            icon: Icons.flag,
-            title: 'Daily Goal',
-            subtitle: _getGoalSubtitle(settings),
-            onTap: () => _showDailyGoalDialog(context, ref, settings),
-            trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
-          ),
-
-          // === REPORTS & NOTIFICATIONS ===
-          const SettingsSection(title: 'Reports & Notifications'),
-          
-          SettingsTile(
-            icon: Icons.date_range,
-            title: 'Weekly Progress Report',
-            subtitle: 'Show weekly summary on app open',
-            switchValue: settings.weeklyReportEnabled,
-            onSwitchChanged: (value) {
-              ref.read(settingsProvider.notifier).setWeeklyReportEnabled(value);
-            },
-          ),
-          
-          SettingsTile(
-            icon: Icons.calendar_month,
-            title: 'Monthly Progress Report',
-            subtitle: 'Show monthly summary on app open',
-            switchValue: settings.monthlyReportEnabled,
-            onSwitchChanged: (value) {
-              ref.read(settingsProvider.notifier).setMonthlyReportEnabled(value);
-            },
-          ),
-          
-          SettingsTile(
-            icon: Icons.trending_down,
-            title: 'Goal Miss Reminder',
-            subtitle: 'Remind when yesterday\'s goal was missed',
-            switchValue: settings.goalMissNotificationEnabled,
-            onSwitchChanged: (value) {
-              ref.read(settingsProvider.notifier).setGoalMissNotificationEnabled(value);
-            },
-          ),
+          const SizedBox(height: 12),
 
           // === ABOUT ===
-          const SettingsSection(title: 'About'),
-          
-          SettingsTile(
+          _buildSettingsGroup(
+            context,
             icon: Icons.info_outline,
-            title: 'Smart Naam Jap',
-            subtitle: 'Version 2.0.0',
-          ),
-          
-          SettingsTile(
-            icon: Icons.code,
-            title: 'Developer',
-            subtitle: 'Made with ❤️ for spiritual practice',
-          ),
-          
-          SettingsTile(
-            icon: Icons.star_rounded,
-            title: 'Rate Us',
-            subtitle: 'Love the app? Please rate us!',
-            onTap: () => FeedbackService().openStoreForRating(),
-            trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+            title: 'About',
+            children: [
+              SettingsTile(
+                icon: Icons.info_outline,
+                title: 'Smart Naam Jap',
+                subtitle: _appVersion.isNotEmpty ? 'Version $_appVersion' : 'Loading...',
+              ),
+              SettingsTile(
+                icon: Icons.code,
+                title: 'Developer',
+                subtitle: 'Made with ❤️ for spiritual practice',
+              ),
+            ],
           ),
 
           const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+  Widget _buildSettingsGroup(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Settings items
+          ...children,
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -243,7 +385,7 @@ class SettingsScreen extends ConsumerWidget {
     return number.toString();
   }
 
-  void _showInterfaceModeDialog(BuildContext context, WidgetRef ref, InterfaceMode currentMode) {
+  void _showInterfaceModeDialog(BuildContext context, InterfaceMode currentMode) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -289,7 +431,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showCustomTitleDialog(BuildContext context, WidgetRef ref, String currentTitle) {
+  void _showCustomTitleDialog(BuildContext context, String currentTitle) {
     final controller = TextEditingController(text: currentTitle);
     
     showDialog(
@@ -349,7 +491,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showThemePickerDialog(BuildContext context, WidgetRef ref, AppThemeColor currentTheme) {
+  void _showThemePickerDialog(BuildContext context, AppThemeColor currentTheme) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -456,7 +598,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showCenterImageDialog(BuildContext context, WidgetRef ref, String? currentImagePath) {
+  void _showCenterImageDialog(BuildContext context, String? currentImagePath) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -660,7 +802,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showGoalTypeDialog(BuildContext context, WidgetRef ref, GoalType currentType) {
+  void _showGoalTypeDialog(BuildContext context, GoalType currentType) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -706,15 +848,15 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showDailyGoalDialog(BuildContext context, WidgetRef ref, settings) {
+  void _showDailyGoalDialog(BuildContext context, settings) {
     if (settings.goalType == GoalType.malas) {
-      _showMalaGoalDialog(context, ref, settings.dailyGoal);
+      _showMalaGoalDialog(context, settings.dailyGoal);
     } else {
-      _showCountGoalDialog(context, ref, settings.dailyGoalCount);
+      _showCountGoalDialog(context, settings.dailyGoalCount);
     }
   }
 
-  void _showMalaGoalDialog(BuildContext context, WidgetRef ref, int currentGoal) {
+  void _showMalaGoalDialog(BuildContext context, int currentGoal) {
     int selectedGoal = currentGoal;
     
     showDialog(
@@ -796,7 +938,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showCountGoalDialog(BuildContext context, WidgetRef ref, int currentGoal) {
+  void _showCountGoalDialog(BuildContext context, int currentGoal) {
     int selectedGoal = currentGoal;
     final presets = [108, 216, 540, 1080, 10800];
     

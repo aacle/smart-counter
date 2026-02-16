@@ -8,12 +8,16 @@ class CounterState {
   final int totalMalasCompleted;
   final DateTime sessionStartTime;
   final bool isSessionActive;
+  final Duration accumulatedJapDuration;
+  final DateTime? lastCountTime;
 
   const CounterState({
     required this.count,
     required this.totalMalasCompleted,
     required this.sessionStartTime,
     required this.isSessionActive,
+    this.accumulatedJapDuration = Duration.zero,
+    this.lastCountTime,
   });
 
   /// Initial state for a new session
@@ -23,6 +27,8 @@ class CounterState {
       totalMalasCompleted: 0,
       sessionStartTime: DateTime.now(),
       isSessionActive: true,
+      accumulatedJapDuration: Duration.zero,
+      lastCountTime: null,
     );
   }
 
@@ -35,8 +41,19 @@ class CounterState {
   /// Total malas completed in this session (including partial)
   int get sessionMalas => count ~/ kMalaSize;
 
-  /// Session duration
-  Duration get sessionDuration => DateTime.now().difference(sessionStartTime);
+  /// Session duration - returns accumulated jap time only
+  Duration get sessionDuration {
+    if (lastCountTime == null) return accumulatedJapDuration;
+    
+    // If last count was within 5 seconds, add the tail time
+    final now = DateTime.now();
+    final timeSinceLastCount = now.difference(lastCountTime!);
+    if (timeSinceLastCount.inSeconds <= 5) {
+      return accumulatedJapDuration + timeSinceLastCount;
+    }
+    
+    return accumulatedJapDuration;
+  }
 
   /// Create a copy with updated values
   CounterState copyWith({
@@ -44,12 +61,17 @@ class CounterState {
     int? totalMalasCompleted,
     DateTime? sessionStartTime,
     bool? isSessionActive,
+    Duration? accumulatedJapDuration,
+    DateTime? lastCountTime,
+    bool clearLastCountTime = false,
   }) {
     return CounterState(
       count: count ?? this.count,
       totalMalasCompleted: totalMalasCompleted ?? this.totalMalasCompleted,
       sessionStartTime: sessionStartTime ?? this.sessionStartTime,
       isSessionActive: isSessionActive ?? this.isSessionActive,
+      accumulatedJapDuration: accumulatedJapDuration ?? this.accumulatedJapDuration,
+      lastCountTime: clearLastCountTime ? null : (lastCountTime ?? this.lastCountTime),
     );
   }
 
@@ -60,6 +82,8 @@ class CounterState {
       'totalMalasCompleted': totalMalasCompleted,
       'sessionStartTime': sessionStartTime.toIso8601String(),
       'isSessionActive': isSessionActive,
+      'accumulatedJapDurationMs': accumulatedJapDuration.inMilliseconds,
+      'lastCountTime': lastCountTime?.toIso8601String(),
     };
   }
 
@@ -72,6 +96,12 @@ class CounterState {
           ? DateTime.parse(json['sessionStartTime'] as String)
           : DateTime.now(),
       isSessionActive: json['isSessionActive'] as bool? ?? true,
+      accumulatedJapDuration: Duration(
+        milliseconds: json['accumulatedJapDurationMs'] as int? ?? 0,
+      ),
+      lastCountTime: json['lastCountTime'] != null
+          ? DateTime.parse(json['lastCountTime'] as String)
+          : null,
     );
   }
 
@@ -82,7 +112,9 @@ class CounterState {
         other.count == count &&
         other.totalMalasCompleted == totalMalasCompleted &&
         other.sessionStartTime == sessionStartTime &&
-        other.isSessionActive == isSessionActive;
+        other.isSessionActive == isSessionActive &&
+        other.accumulatedJapDuration == accumulatedJapDuration &&
+        other.lastCountTime == lastCountTime;
   }
 
   @override
@@ -92,6 +124,8 @@ class CounterState {
       totalMalasCompleted,
       sessionStartTime,
       isSessionActive,
+      accumulatedJapDuration,
+      lastCountTime,
     );
   }
 }

@@ -35,11 +35,13 @@ class SessionStats extends StatelessWidget {
         top: false,
         child: Row(
           children: [
-            // Session timer
+            // Jap timer
             _StatItem(
               icon: Icons.timer_outlined,
               label: _formatDuration(sessionDuration),
-              color: AppColors.textSecondary,
+              color: sessionDuration > Duration.zero 
+                  ? AppColors.primary 
+                  : AppColors.textSecondary,
             ),
 
             const Spacer(),

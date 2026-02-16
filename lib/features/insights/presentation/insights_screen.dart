@@ -6,11 +6,14 @@ import '../../../core/theme/colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../settings/providers/settings_provider.dart';
 import '../../settings/domain/settings_state.dart';
+import '../../settings/presentation/settings_screen.dart';
 import '../../counter/providers/counter_provider.dart';
 import '../providers/insights_provider.dart';
 import '../domain/daily_stats.dart';
 import 'widgets/weekly_report_dialog.dart';
+import 'widgets/calendar_heat_map.dart';
 import '../../../services/report_service.dart';
+import '../../../services/share_progress_service.dart';
 
 /// Comprehensive Stats/Insights screen
 class InsightsScreen extends ConsumerStatefulWidget {
@@ -68,6 +71,18 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
             ),
             actions: [
               IconButton(
+                icon: const Icon(Icons.share_outlined, size: 20),
+                onPressed: () {
+                  final todayStats = insights.todayStats;
+                  final streak = insights.currentStreak;
+                  final text = '🙏 Today\'s Practice\n'
+                      '📿 ${todayStats.malas} Malas  •  🔢 ${todayStats.counts} Chants\n'
+                      '${streak > 0 ? '🔥 $streak Day Streak!\n' : ''}'
+                      '\n— Smart Naam Jap';
+                  ShareProgressService.instance.shareText(text, subject: 'My Practice Today');
+                },
+              ),
+              IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () {
                   ref.invalidate(lifetimeStatsProvider);
@@ -92,8 +107,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
 
                       const SizedBox(height: 20),
 
-                      // Streak Card
-                      _buildStreakCard(context, insights),
+                      // Calendar Heat Map
+                      CalendarHeatMap(
+                        dailyStats: insights.dailyStats,
+                        goalMalas: settings.dailyGoal,
+                      ),
 
                       const SizedBox(height: 20),
 
@@ -107,6 +125,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
 
 
 
+                      const SizedBox(height: 16),
                       // Motivational Card
                       _buildMotivationalCard(context, insights),
 
@@ -275,10 +294,59 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
               ],
             ),
           ],
+
+        // Compact streak badge
+        if (insights.currentStreak > 0 || insights.bestStreak > 0) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (insights.currentStreak > 0) ...[
+                  Text(
+                    insights.currentStreak >= 3 ? '🔥' : '📿',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${insights.currentStreak} Day Streak',
+                    style: TextStyle(
+                      color: insights.currentStreak >= 3
+                          ? AppColors.secondary
+                          : AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+                if (insights.bestStreak > insights.currentStreak) ...[
+                  const SizedBox(width: 14),
+                  Container(width: 1, height: 16, color: AppColors.primary.withValues(alpha: 0.2)),
+                  const SizedBox(width: 14),
+                  const Text('🏆', style: TextStyle(fontSize: 13)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Best: ${insights.bestStreak}',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
-  }
+      ],
+    ),
+  ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
+}
 
   Widget _buildHeroStat(
     BuildContext context, {
@@ -384,6 +452,30 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
           if (currentStreak > 0)
             Column(
               children: [
+                if (bestStreak > currentStreak)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    margin: const EdgeInsets.only(bottom: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🏆', style: TextStyle(fontSize: 10)),
+                        const SizedBox(width: 3),
+                        Text(
+                          '$bestStreak',
+                          style: TextStyle(
+                            color: AppColors.secondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Text(
                   '$currentStreak',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -412,47 +504,55 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
     
     // If no goal is set, show a prompt to set one
     if (goalValue <= 0) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.2),
+      return GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SettingsScreen()),
+          );
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.2),
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.flag_outlined, color: AppColors.primary, size: 24),
               ),
-              child: Icon(Icons.flag_outlined, color: AppColors.primary, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Set a Daily Goal',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Set a Daily Goal',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Track your progress and build consistency',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Track your progress and build consistency',
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Icon(Icons.chevron_right, color: AppColors.textMuted),
-          ],
+              Icon(Icons.chevron_right, color: AppColors.textMuted),
+            ],
+          ),
         ),
       ).animate().fadeIn(duration: 400.ms, delay: 150.ms).slideY(begin: 0.1, end: 0);
     }
@@ -551,7 +651,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
           // Achievement Stats Row
           _buildAchievementStatsRow(context, insights, isCountGoal, goalValue),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           
           // Summary text with badge
           _buildAchievementSummary(context, achievementRate, daysWithGoalMet),
@@ -586,7 +686,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
     final rate30 = days30WithGoalMet / 30;
     
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -616,7 +716,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
           
           Container(
             width: 1,
-            height: 60,
+            height: 48,
             color: AppColors.primary.withValues(alpha: 0.2),
           ),
           
@@ -633,7 +733,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
           
           Container(
             width: 1,
-            height: 60,
+            height: 48,
             color: AppColors.primary.withValues(alpha: 0.2),
           ),
           
@@ -689,7 +789,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         RichText(
           text: TextSpan(
             children: [
@@ -989,7 +1089,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
 
           // Tab content
           SizedBox(
-            height: 260,
+            height: 320,
             child: TabBarView(
               controller: _tabController,
               children: [
@@ -1031,9 +1131,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
                 Icons.all_inclusive,
               ),
               _buildStatColumn(
-                stats.totalSessions.toString(),
-                'Sessions',
-                Icons.play_circle_outline,
+                _formatDuration(stats.totalDuration),
+                'Jap Time',
+                Icons.timer_outlined,
               ),
             ],
           ),
@@ -1050,12 +1150,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
               children: [
                 _buildMiniStat(
                   '${stats.avgMalasPerDay.toStringAsFixed(1)}',
-                  'Avg/Day',
-                ),
-                Container(width: 1, height: 30, color: AppColors.cardBackground),
-                _buildMiniStat(
-                  _formatDuration(stats.avgSessionDuration),
-                  'Avg Session',
+                  'Avg Malas/Day',
                 ),
                 Container(width: 1, height: 30, color: AppColors.cardBackground),
                 _buildMiniStat(
@@ -1090,9 +1185,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
                 Icons.all_inclusive,
               ),
               _buildStatColumn(
-                stats.totalSessions.toString(),
-                'Sessions',
-                Icons.play_circle_outline,
+                _formatDuration(stats.totalDuration),
+                'Jap Time',
+                Icons.timer_outlined,
               ),
             ],
           ),
@@ -1198,9 +1293,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
                 Icons.all_inclusive,
               ),
               _buildStatColumn(
-                allTime.totalSessions.toString(),
-                'Sessions',
-                Icons.play_circle_outline,
+                _formatDuration(allTime.totalDuration),
+                'Jap Time',
+                Icons.timer_outlined,
               ),
             ],
           ),
@@ -1208,20 +1303,20 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Icon(Icons.star, color: AppColors.primary, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'Lifetime Journey',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                _buildMiniStat(
+                  allTime.avgMalasPerDay.toStringAsFixed(1),
+                  'Avg Malas/Day',
+                ),
+                Container(width: 1, height: 30, color: AppColors.cardBackground),
+                _buildMiniStat(
+                  allTime.daysActive.toString(),
+                  'Days Active',
                 ),
               ],
             ),
@@ -1310,32 +1405,29 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(width: 16),
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w500,
-                    height: 1.4,
-                  ),
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+              ),
             ),
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 400.ms, delay: 400.ms).slideY(begin: 0.1, end: 0);
+    ).animate().fadeIn(duration: 400.ms, delay: 400.ms);
   }
 
   String _formatNumber(int number) {

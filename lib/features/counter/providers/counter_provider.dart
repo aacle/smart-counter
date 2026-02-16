@@ -34,6 +34,9 @@ class LifetimeStats {
   });
 }
 
+/// Inactivity timeout - after this many seconds without a tap, jap timer pauses
+const int kJapInactivityTimeoutSeconds = 5;
+
 /// Counter state notifier with persistence
 class CounterNotifier extends StateNotifier<CounterState> {
   CounterNotifier() : super(CounterState.initial()) {
@@ -81,8 +84,9 @@ class CounterNotifier extends StateNotifier<CounterState> {
           state = CounterState.initial();
           await _saveState();
         } else {
-          // Same day - restore the session
-          state = loadedState;
+          // Same day - restore the session but clear lastCountTime 
+          // (timer should not auto-resume from a previous app open)
+          state = loadedState.copyWith(clearLastCountTime: true);
         }
       }
     } catch (e) {
@@ -101,24 +105,57 @@ class CounterNotifier extends StateNotifier<CounterState> {
     }
   }
 
-  /// Increment the counter
+  /// Increment the counter and track jap time
   Future<void> increment() async {
+    final now = DateTime.now();
     final newCount = state.count + 1;
     final newMalas = newCount ~/ kMalaSize;
     final previousMalas = state.count ~/ kMalaSize;
+
+    // Calculate jap time to accumulate
+    Duration newAccumulated = state.accumulatedJapDuration;
+    if (state.lastCountTime != null) {
+      final elapsed = now.difference(state.lastCountTime!);
+      // Only add time if within inactivity timeout
+      if (elapsed.inSeconds <= kJapInactivityTimeoutSeconds) {
+        newAccumulated += elapsed;
+      }
+    }
 
     state = state.copyWith(
       count: newCount,
       totalMalasCompleted: newMalas > previousMalas
           ? state.totalMalasCompleted + 1
           : state.totalMalasCompleted,
+      accumulatedJapDuration: newAccumulated,
+      lastCountTime: now,
     );
-
-    // Note: Haptic feedback is handled by CounterScreen based on settings
 
     // Auto-save periodically
     if (newCount % 10 == 0) {
       await _saveState();
+    }
+  }
+
+  /// Get current jap duration in seconds (for saving to insights)
+  int get japDurationSeconds => state.sessionDuration.inSeconds;
+
+  /// Pause the jap timer (called when app is backgrounded)
+  void pauseJapTimer() {
+    if (state.lastCountTime != null) {
+      final now = DateTime.now();
+      final elapsed = now.difference(state.lastCountTime!);
+      Duration newAccumulated = state.accumulatedJapDuration;
+      
+      // Add any remaining active time (if within timeout)
+      if (elapsed.inSeconds <= kJapInactivityTimeoutSeconds) {
+        newAccumulated += elapsed;
+      }
+      
+      state = state.copyWith(
+        accumulatedJapDuration: newAccumulated,
+        clearLastCountTime: true,
+      );
     }
   }
 
@@ -147,6 +184,7 @@ class CounterNotifier extends StateNotifier<CounterState> {
 
   /// End the current session and save stats
   Future<void> endSession() async {
+    pauseJapTimer();
     state = state.copyWith(isSessionActive: false);
     await _updateLifetimeStats();
     await _saveState();

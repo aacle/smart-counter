@@ -313,6 +313,24 @@ class InsightsNotifier extends StateNotifier<InsightsState> {
     await _saveData();
   }
 
+  /// Record jap time (absolute seconds from counter state)
+  /// This sets today's duration to the given value (not additive)
+  /// since the counter state tracks the total accumulated jap time
+  Future<void> recordJapTime(int totalJapSeconds) async {
+    final todayKey = InsightsState.todayKey;
+    
+    final currentStats = state.dailyStats[todayKey] ?? DailyStats.empty(todayKey);
+    final updatedStats = currentStats.copyWith(
+      durationSeconds: totalJapSeconds,
+    );
+    
+    final newDailyStats = Map<String, DailyStats>.from(state.dailyStats);
+    newDailyStats[todayKey] = updatedStats;
+    
+    state = state.copyWith(dailyStats: newDailyStats);
+    // Don't save on every call - let saveNow() handle persistence
+  }
+
   /// Force save current data
   Future<void> saveNow() async {
     await _saveData();

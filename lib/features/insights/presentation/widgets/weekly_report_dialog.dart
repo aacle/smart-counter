@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../services/report_service.dart';
+import '../../../../services/share_progress_service.dart';
 
 /// Weekly progress report dialog
-class WeeklyReportDialog extends StatelessWidget {
+class WeeklyReportDialog extends StatefulWidget {
   final WeeklyReportData reportData;
   final VoidCallback onDismiss;
 
@@ -13,6 +14,17 @@ class WeeklyReportDialog extends StatelessWidget {
     required this.reportData,
     required this.onDismiss,
   });
+
+  @override
+  State<WeeklyReportDialog> createState() => _WeeklyReportDialogState();
+}
+
+class _WeeklyReportDialogState extends State<WeeklyReportDialog> {
+  final _repaintKey = GlobalKey();
+  bool _isSharing = false;
+
+  WeeklyReportData get reportData => widget.reportData;
+  VoidCallback get onDismiss => widget.onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +44,20 @@ class WeeklyReportDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Wrap content in RepaintBoundary for sharing
+            RepaintBoundary(
+              key: _repaintKey,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.cardBackground,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
             // Header with gradient
             Container(
               padding: const EdgeInsets.all(20),
@@ -228,12 +254,49 @@ class WeeklyReportDialog extends StatelessWidget {
                       ),
                     ),
                   ).animate().fadeIn(duration: 400.ms, delay: 600.ms),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Dismiss button
-                  SizedBox(
-                    width: double.infinity,
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+
+            // Action buttons (outside RepaintBoundary)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Row(
+                children: [
+                  // Share button
+                  Expanded(
+                    flex: 2,
+                    child: OutlinedButton.icon(
+                      onPressed: _isSharing ? null : _handleShare,
+                      icon: _isSharing
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
+                            )
+                          : Icon(Icons.share, size: 16),
+                      label: Text(_isSharing ? 'Sharing...' : 'Share'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(color: AppColors.primary.withValues(alpha: 0.5)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ).animate().fadeIn(duration: 400.ms, delay: 700.ms),
+                  ),
+                  const SizedBox(width: 10),
+                  // Continue button
+                  Expanded(
+                    flex: 3,
                     child: ElevatedButton(
                       onPressed: onDismiss,
                       style: ElevatedButton.styleFrom(
@@ -244,9 +307,9 @@ class WeeklyReportDialog extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('Continue Practice'),
-                    ),
-                  ).animate().fadeIn(duration: 400.ms, delay: 700.ms),
+                      child: const Text('Continue'),
+                    ).animate().fadeIn(duration: 400.ms, delay: 700.ms),
+                  ),
                 ],
               ),
             ),
@@ -254,6 +317,16 @@ class WeeklyReportDialog extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handleShare() async {
+    setState(() => _isSharing = true);
+    await ShareProgressService.instance.shareWidgetAsImage(
+      _repaintKey,
+      subject: reportData.isWeekly ? 'My Weekly Practice' : 'My Monthly Practice',
+      text: '🙏 My ${reportData.isWeekly ? "weekly" : "monthly"} practice progress on Smart Naam Jap!',
+    );
+    if (mounted) setState(() => _isSharing = false);
   }
 
   Widget _buildDayBar(BuildContext context, String day, double progress, bool goalMet, {
