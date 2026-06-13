@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Naam Jap - Developer Workflow</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+        h1, h2, h3 { color: #2c3e50; }
+        h1 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        code {
+            background-color: #f1f1f1;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        pre {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        .note {
+            border-left: 4px solid #f39c12;
+            padding-left: 15px;
+            margin: 15px 0;
+            font-style: italic;
+        }
+        .warning {
+            border-left: 4px solid #e74c3c;
+            padding-left: 15px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 Smart Naam Jap - Developer Workflow</h1>
+    <p>A quick reference guide for debugging, developing, and releasing updates.</p>
+
+    <div class="section">
+        <h2>📱 1. Connect Device (Wireless Debugging)</h2>
+        <p>Requirements: Android 11+ device and PC on the same Wi-Fi network.</p>
+        <ol>
+            <li>On your phone, go to <strong>Settings > Developer options</strong>.</li>
+            <li>Enable <strong>Wireless debugging</strong>.</li>
+            <li>Tap the words "Wireless debugging" to open the menu.</li>
+            <li>Tap <strong>Pair device with pairing code</strong>. Note the IP, Port, and Code.</li>
+            <li>In your terminal, run:
+<pre><code>adb pair 192.168.X.X:PORT</code></pre>
+            <em>(Enter the pairing code when prompted)</em></li>
+            <li>Check the main Wireless Debugging screen on your phone for a <strong>different</strong> port under "IP address & Port". Run:
+<pre><code>adb connect 192.168.X.X:NEW_PORT</code></pre>
+            </li>
+            <li>Verify connection:
+<pre><code>flutter devices</code></pre>
+            </li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>💻 2. Local Development & Testing</h2>
+        <p>Use these commands in your terminal to build and debug.</p>
+        <ul>
+            <li><strong>Start the app:</strong> <code>flutter run</code></li>
+            <li><strong>Hot Reload:</strong> Press <code>r</code> in the terminal to instantly see UI changes.</li>
+            <li><strong>Hot Restart:</strong> Press <code>R</code> (Shift+R) to completely restart the app state.</li>
+            <li><strong>Quit:</strong> Press <code>q</code> to stop the debugging session.</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>📈 3. Bumping the App Version</h2>
+        <div class="warning">
+            Before creating a release, you MUST update the version in <code>pubspec.yaml</code>.
+        </div>
+        <p>Find the <code>version:</code> line in <code>pubspec.yaml</code>:</p>
+<pre><code>version: 1.0.0+1</code></pre>
+        <ul>
+            <li><strong><code>1.0.0</code> (Version Name):</strong> This is the public version shown to users on the Play Store.</li>
+            <li><strong><code>+1</code> (Version Code):</strong> This is Google's internal tracking number. <strong>It MUST be increased by at least 1 every time you upload a new update.</strong></li>
+        </ul>
+        <p><em>Example update: change <code>1.0.0+1</code> to <code>1.0.1+2</code></em></p>
+    </div>
+
+    <div class="section">
+        <h2>🏷️ 4. GitHub Release Workflow (CI/CD)</h2>
+        <p>Your repository uses GitHub Actions. Pushing a tag starting with "v" automatically builds the signed App Bundle for the Play Store.</p>
+        
+        <h3>Step A: Push your code changes</h3>
+<pre><code>git add .
+git commit -m "feat: added new awesome feature"
+git push origin main</code></pre>
+
+        <h3>Step B: Create a Tag</h3>
+        <p>Create a git tag that exactly matches your new version.</p>
+<pre><code>git tag v1.0.1</code></pre>
+
+        <h3>Step C: Push the Tag</h3>
+<pre><code>git push origin v1.0.1</code></pre>
+
+        <div class="note">
+            <strong>What happens next?</strong><br>
+            GitHub Actions will detect the `v1.0.1` tag, automatically build the signed `.aab` file using your restored keystore, and attach it to a new Release on your GitHub page. Download the `.aab` from there and upload it to the Google Play Console!
+        </div>
+    </div>
+
+</body>
+</html>

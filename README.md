@@ -29,11 +29,52 @@ Smart Naam Jap 2.0 is a refined, offline-first Flutter application designed to e
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### 🐧 Debian / Linux Headless Setup Guide
 
-*   Flutter SDK (3.10.4 or higher)
-*   Dart SDK
-*   Android Studio / Xcode (for mobile development)
+If you are setting up this project on a fresh Debian/Linux machine without Android Studio, follow these exact steps to set up the Android toolchain headlessly.
+
+**1. Install System Prerequisites**
+```bash
+sudo apt-get update
+sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev default-jdk xz-utils git curl unzip libglu1-mesa
+```
+
+**2. Install Flutter (via Snap)**
+The recommended way to install Flutter on Linux is via snap.
+```bash
+sudo apt install snapd
+sudo snap install flutter --classic
+```
+
+**3. Headless Android SDK Setup**
+Run this script to download and install the Android Command Line Tools, accept licenses, and install the required Platform and Build Tools.
+```bash
+# Set environment variables (Add these to your ~/.bashrc)
+export JAVA_HOME="/usr/lib/jvm/default-java"
+export ANDROID_HOME="$HOME/Android/Sdk"
+export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+
+# Download Command Line Tools
+mkdir -p $HOME/Android/Sdk/cmdline-tools
+wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+unzip -q cmdline-tools.zip -d $HOME/Android/Sdk/cmdline-tools
+mv $HOME/Android/Sdk/cmdline-tools/cmdline-tools $HOME/Android/Sdk/cmdline-tools/latest
+rm cmdline-tools.zip
+
+# Accept licenses and install platforms
+yes | sdkmanager --licenses
+sdkmanager "platform-tools" "platforms;android-36" "build-tools;28.0.3"
+
+# Tell Flutter where the SDK is
+flutter config --android-sdk "$ANDROID_HOME"
+flutter doctor
+```
+
+### 📱 Wireless Debugging (Android 11+)
+1. Enable **Wireless debugging** in Developer Options on your phone.
+2. Tap "Pair device with pairing code".
+3. In your terminal, run: `adb pair <IP>:<PORT>`
+4. Look at the main Wireless Debugging screen for the active port, then run: `adb connect <IP>:<NEW_PORT>`
 
 ### Installation
 
@@ -56,6 +97,14 @@ Smart Naam Jap 2.0 is a refined, offline-first Flutter application designed to e
 ## 🤖 CI/CD & Building
 
 This project uses **GitHub Actions** for automated builds and releases.
+
+### Triggering a Play Store Release
+To automatically build a signed `.aab` file and create a GitHub Release:
+
+1. **Bump Version:** Update `pubspec.yaml` (e.g., `version: 1.0.1+2`. You **must** increment the `+2` build number).
+2. **Commit Changes:** `git commit -am "chore: bump version to 1.0.1"`
+3. **Create Tag:** `git tag v1.0.1`
+4. **Push Tag:** `git push origin v1.0.1`
 
 ### Workflows
 
