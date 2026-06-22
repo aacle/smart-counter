@@ -44,6 +44,7 @@ Future<void> main() async {
   await _createDailyStatsCollection(databases);
   await _createUserSettingsCollection(databases);
   await _createUserProfilesCollection(databases);
+  await _backfillUserProfiles(databases);
 
   print('\n=== Setup complete! ===');
   print('Database ID : $_databaseId');
@@ -130,8 +131,10 @@ Future<void> _createUserSettingsCollection(Databases db) async {
   );
 
   await _ensureStringAttr(db, _userSettingsId, 'user_id', 36, required: true);
-  await _ensureStringAttr(db, _userSettingsId, 'settings_json', 16000, required: true);
-  await _ensureStringAttr(db, _userSettingsId, 'updated_at', 30, required: true);
+  await _ensureStringAttr(db, _userSettingsId, 'settings_json', 16000,
+      required: true);
+  await _ensureStringAttr(db, _userSettingsId, 'updated_at', 30,
+      required: true);
 
   await _waitForAttributes(db, _userSettingsId);
 
@@ -160,15 +163,23 @@ Future<void> _createUserProfilesCollection(Databases db) async {
   );
 
   await _ensureStringAttr(db, _userProfilesId, 'user_id', 36, required: true);
-  await _ensureStringAttr(db, _userProfilesId, 'display_name', 100, required: true);
-  await _ensureStringAttr(db, _userProfilesId, 'avatar_url', 500, required: false);
+  await _ensureStringAttr(db, _userProfilesId, 'display_name', 100,
+      required: true);
+  await _ensureStringAttr(db, _userProfilesId, 'avatar_url', 500,
+      required: false);
   await _ensureIntAttr(db, _userProfilesId, 'total_counts', required: true);
   await _ensureIntAttr(db, _userProfilesId, 'total_malas', required: true);
   await _ensureIntAttr(db, _userProfilesId, 'total_sessions', required: true);
   await _ensureIntAttr(db, _userProfilesId, 'current_streak', required: true);
   await _ensureIntAttr(db, _userProfilesId, 'best_streak', required: true);
-  await _ensureIntAttr(db, _userProfilesId, 'today_counts', required: true);
-  await _ensureStringAttr(db, _userProfilesId, 'last_sync_at', 30, required: true);
+  await _ensureIntAttr(
+    db,
+    _userProfilesId,
+    'today_counts',
+    defaultValue: 0,
+  );
+  await _ensureStringAttr(db, _userProfilesId, 'last_sync_at', 30,
+      required: true);
 
   await _waitForAttributes(db, _userProfilesId);
 
@@ -204,6 +215,164 @@ Future<void> _createUserProfilesCollection(Databases db) async {
     attributes: ['current_streak'],
     orders: ['DESC'],
   );
+}
+
+Future<void> _backfillUserProfiles(Databases db) async {
+  print('\n[~] Backfilling user_profiles from daily_stats...');
+
+  final todayKey = _dateKey(DateTime.now());
+  final totalsByUser = <String, _ProfileTotals>{};
+  String? cursor;
+
+  while (true) {
+    final docs = await _listDocumentsRaw(
+      db,
+      _dailyStatsId,
+      queries: [
+        Query.limit(100),
+        if (cursor != null) Query.cursorAfter(cursor),
+      ],
+    );
+
+    for (final doc in docs) {
+      final data = doc;
+      final userId = data['user_id'] as String?;
+      if (userId == null || userId.isEmpty) continue;
+
+      final totals = totalsByUser.putIfAbsent(userId, _ProfileTotals.new);
+      final counts = data['counts'] as int? ?? 0;
+      totals.totalCounts += counts;
+      totals.totalMalas += data['malas'] as int? ?? 0;
+      totals.totalSessions += data['sessions'] as int? ?? 0;
+
+      if (data['date'] == todayKey) {
+        totals.todayCounts = counts;
+      }
+    }
+
+    if (docs.length < 100) break;
+    cursor = docs.last[r'$id'] as String?;
+  }
+
+  for (final entry in totalsByUser.entries) {
+    final userId = entry.key;
+    final totals = entry.value;
+    Map<String, dynamic> existing = const {};
+
+    try {
+      final doc = await _getDocumentRaw(db, _userProfilesId, userId);
+      existing = doc;
+    } on AppwriteException catch (e) {
+      if (e.code != 404) rethrow;
+    }
+
+    final data = {
+      'user_id': userId,
+      'display_name': existing['display_name'] as String? ?? '',
+      'avatar_url': existing['avatar_url'] as String? ?? '',
+      'total_counts': totals.totalCounts,
+      'total_malas': totals.totalMalas,
+      'total_sessions': totals.totalSessions,
+      'current_streak': existing['current_streak'] as int? ?? 0,
+      'best_streak': existing['best_streak'] as int? ?? 0,
+      'today_counts': totals.todayCounts,
+      'last_sync_at': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    if (existing.isEmpty) {
+      await _createDocumentRaw(
+        db,
+        _userProfilesId,
+        userId,
+        data: data,
+        permissions: [
+          Permission.read(Role.user(userId)),
+          Permission.update(Role.user(userId)),
+          Permission.delete(Role.user(userId)),
+        ],
+      );
+    } else {
+      await _updateDocumentRaw(db, _userProfilesId, userId, data: data);
+    }
+  }
+
+  print('  [✓] Backfilled ${totalsByUser.length} user profile(s)');
+}
+
+Future<List<Map<String, dynamic>>> _listDocumentsRaw(
+  Databases db,
+  String collectionId, {
+  List<String> queries = const [],
+}) async {
+  final response = await db.client.call(
+    internal.HttpMethod.get,
+    path: '/databases/$_databaseId/collections/$collectionId/documents',
+    params: {'queries': queries},
+    headers: {'content-type': 'application/json'},
+  );
+
+  final data = (response as dynamic).data as Map<String, dynamic>;
+  final documents = data['documents'] as List<dynamic>? ?? const [];
+  return documents.cast<Map<String, dynamic>>();
+}
+
+Future<Map<String, dynamic>> _getDocumentRaw(
+  Databases db,
+  String collectionId,
+  String documentId,
+) async {
+  final response = await db.client.call(
+    internal.HttpMethod.get,
+    path:
+        '/databases/$_databaseId/collections/$collectionId/documents/$documentId',
+    headers: {'content-type': 'application/json'},
+  );
+  return (response as dynamic).data as Map<String, dynamic>;
+}
+
+Future<void> _createDocumentRaw(
+  Databases db,
+  String collectionId,
+  String documentId, {
+  required Map<String, dynamic> data,
+  List<String> permissions = const [],
+}) async {
+  await db.client.call(
+    internal.HttpMethod.post,
+    path: '/databases/$_databaseId/collections/$collectionId/documents',
+    params: {
+      'documentId': documentId,
+      'data': data,
+      'permissions': permissions,
+    },
+    headers: {'content-type': 'application/json'},
+  );
+}
+
+Future<void> _updateDocumentRaw(
+  Databases db,
+  String collectionId,
+  String documentId, {
+  required Map<String, dynamic> data,
+}) async {
+  await db.client.call(
+    internal.HttpMethod.patch,
+    path:
+        '/databases/$_databaseId/collections/$collectionId/documents/$documentId',
+    params: {'data': data},
+    headers: {'content-type': 'application/json'},
+  );
+}
+
+String _dateKey(DateTime date) {
+  return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+}
+
+class _ProfileTotals {
+  int totalCounts = 0;
+  int totalMalas = 0;
+  int totalSessions = 0;
+  int todayCounts = 0;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

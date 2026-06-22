@@ -42,11 +42,12 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   final HapticService _hapticService = HapticService.instance;
   final SoundService _soundService = SoundService.instance;
   final FeedbackService _feedbackService = FeedbackService.instance;
-  
+
   StreamSubscription<void>? _volumeSubscription;
-  
+
   Timer? _sessionTimer;
   Timer? _autoCountTimer;
+  Timer? _celebrationTimer;
   Duration _sessionDuration = Duration.zero;
   bool _showCelebration = false;
   bool _isAutoCountActive = false;
@@ -59,7 +60,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     _startSessionTimer();
     _initServices();
     _reminderService.initialize();
-    
+
     // Set system UI style
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -75,7 +76,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     await _hapticService.initialize();
     await _soundService.initialize();
     await _feedbackService.initialize();
-    
+
     // Apply initial settings
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final settings = ref.read(settingsProvider);
@@ -92,7 +93,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     final settings = ref.read(settingsProvider);
     var insights = ref.read(insightsProvider);
     final reportService = ReportService.instance;
-    
+
     // Wait for insights data to finish loading before checking reports
     // This prevents showing incorrect "0 malas" when data hasn't loaded yet
     int attempts = 0;
@@ -101,14 +102,15 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
       insights = ref.read(insightsProvider);
       attempts++;
     }
-    
+
     // If still loading after 2 seconds, skip checks for now
     if (insights.isLoading) return;
-    
+
     // Priority: Monthly > Weekly > Goal Miss
-    
+
     // Check monthly report (priority)
-    if (settings.monthlyReportEnabled && await reportService.shouldShowMonthlyReport()) {
+    if (settings.monthlyReportEnabled &&
+        await reportService.shouldShowMonthlyReport()) {
       final last7Days = insights.getStatsForDays(7);
       if (last7Days.any((d) => d.counts > 0)) {
         _showWeeklyReportDialog();
@@ -116,9 +118,10 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
         return;
       }
     }
-    
+
     // Check weekly report
-    if (settings.weeklyReportEnabled && await reportService.shouldShowWeeklyReport()) {
+    if (settings.weeklyReportEnabled &&
+        await reportService.shouldShowWeeklyReport()) {
       final last7Days = insights.getStatsForDays(7);
       if (last7Days.any((d) => d.counts > 0)) {
         _showWeeklyReportDialog();
@@ -126,9 +129,10 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
         return;
       }
     }
-    
+
     // Check goal miss
-    if (settings.goalMissNotificationEnabled && await reportService.shouldShowGoalMissNotification()) {
+    if (settings.goalMissNotificationEnabled &&
+        await reportService.shouldShowGoalMissNotification()) {
       final last7Days = insights.getStatsForDays(7);
       final missInfo = reportService.checkYesterdayGoal(last7Days, settings);
       if (missInfo != null) {
@@ -158,7 +162,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     final reportService = ReportService.instance;
     final last7Days = insights.getStatsForDays(7);
     final reportData = reportService.generateWeeklyReport(last7Days, settings);
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -176,7 +180,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     } else {
       WakelockPlus.disable();
     }
-    
+
     // Apply volume rocker
     if (settings.volumeRockerEnabled) {
       _initVolumeRocker();
@@ -191,6 +195,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     WidgetsBinding.instance.removeObserver(this);
     _sessionTimer?.cancel();
     _autoCountTimer?.cancel();
+    _celebrationTimer?.cancel();
     _volumeSubscription?.cancel();
     _volumeService.stopListening();
     WakelockPlus.disable();
@@ -231,7 +236,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   Future<void> _initVolumeRocker() async {
     final settings = ref.read(settingsProvider);
     if (!settings.volumeRockerEnabled) return;
-    
+
     final isAvailable = await _volumeService.isAvailable();
     if (isAvailable) {
       await _volumeService.startListening();
@@ -244,36 +249,35 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
 
   void _onCount() {
     final settings = ref.read(settingsProvider);
-    final currentState = ref.read(counterProvider);
-    final currentMalas = currentState.count ~/ kMalaSize;
-    
+    final currentDailyCount = ref.read(insightsProvider).todayStats.counts;
+
     // Increment state first
     ref.read(counterProvider.notifier).increment();
-    
+
     // Record count for daily insights
     ref.read(insightsProvider.notifier).recordCount();
-    
-    // Synchronously predict new count to ensure instantaneous feedback.
-    // The previous state was reading the provider asynchronously which caused timing mismatches.
-    final newCount = currentState.count + 1;
-    final newMalas = newCount ~/ kMalaSize;
-    
+
+    // Use the same daily count that drives the visible mala UI. This keeps the
+    // celebration exactly aligned with the number the user sees on screen.
+    final newCount = currentDailyCount + 1;
+    final isMalaComplete = newCount > 0 && newCount % kMalaSize == 0;
+
     // Flush jap time to insights periodically (every 5 counts)
     if (newCount % 5 == 0) {
       _flushJapTimeToInsights();
     }
-    
+
     // Trigger haptic feedback IMMEDIATELY (no frame delay).
     // We ALWAYS want the 108th (mala complete) tap to vibrate even if standard haptics are off.
     _hapticService.onCount(newCount, hapticEnabled: settings.hapticEnabled);
-    
+
     // Play tap sound if enabled
     if (settings.tapSoundEnabled) {
       _soundService.playTapSound();
     }
-    
-    // Trigger the visual UI celebration animation
-    if (newMalas > currentMalas) {
+
+    // Trigger the visual UI celebration exactly on 108, 216, 324...
+    if (isMalaComplete) {
       _showMalaCelebration();
     }
   }
@@ -285,12 +289,12 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
 
   void _startAutoCount() {
     if (_isAutoCountActive) return;
-    
+
     final settings = ref.read(settingsProvider);
     final intervalMs = (settings.autoCountSpeed * 1000).round();
-    
+
     setState(() => _isAutoCountActive = true);
-    
+
     _autoCountTimer = Timer.periodic(
       Duration(milliseconds: intervalMs),
       (_) => _onAutoCount(),
@@ -329,17 +333,17 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
             Text(
               'How Auto Chant Works',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ],
         ),
         content: Text(
           'Enable this to set a continuous rhythm. The app will vibrate or play a tap sound at your set speed, allowing you to chant the mantra internally without needing to touch the screen.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.textSecondary,
-            height: 1.5,
-          ),
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
         ),
         actions: [
           ElevatedButton(
@@ -367,7 +371,19 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   }
 
   /// Get the available speed steps
-  static const List<double> _speedSteps = [0.25, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+  static const List<double> _speedSteps = [
+    0.25,
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+    2.5,
+    3.0,
+    3.5,
+    4.0,
+    4.5,
+    5.0
+  ];
 
   /// Decrease speed to the previous step
   double _decreaseSpeed(double currentSpeed) {
@@ -392,18 +408,21 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
       }
       return _speedSteps.last;
     }
-    return currentIndex < _speedSteps.length - 1 ? _speedSteps[currentIndex + 1] : _speedSteps.last;
+    return currentIndex < _speedSteps.length - 1
+        ? _speedSteps[currentIndex + 1]
+        : _speedSteps.last;
   }
 
   void _showMalaCelebration() {
+    _celebrationTimer?.cancel();
     setState(() => _showCelebration = true);
     // Note: We intentionally do NOT call `_soundService.playComplete()` here anymore.
     // The playComplete() function triggers `_hapticService.celebrationFeedback()`,
-    // which was causing a massive duplicate/out-of-sync vibration right as the 108th 
-    // count was tapped. The `_hapticService.onCount()` already handles the 
+    // which was causing a massive duplicate/out-of-sync vibration right as the 108th
+    // count was tapped. The `_hapticService.onCount()` already handles the
     // exact perfectly-timed 108th vibration.
-    
-    Future.delayed(kMalaCompleteAnimationDuration, () {
+
+    _celebrationTimer = Timer(kMalaCompleteAnimationDuration, () {
       if (mounted) {
         setState(() => _showCelebration = false);
       }
@@ -417,57 +436,12 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     );
   }
 
-  void _onResetTap() {
-    _stopAutoCount();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text(
-          'Reset Counter?',
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        content: Text(
-          'This will reset your current session back to zero. Your daily total in the Insights tab will remain intact.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textMuted),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Reset the counter internally
-              ref.read(counterProvider.notifier).resetSession();
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.background,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final counterState = ref.watch(counterProvider);
     final insightsState = ref.watch(insightsProvider);
     final settings = ref.watch(settingsProvider);
-    
+
     // Watch settings changes and apply them
     ref.listen(settingsProvider, (previous, next) {
       _applySettings(next);
@@ -527,14 +501,16 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
                 onTap: _isAutoCountActive ? null : _onCount,
                 behavior: HitTestBehavior.opaque,
                 child: settings.interfaceMode == InterfaceMode.malaWise
-                    ? _buildMalaWiseContent(counterState, insightsState, settings)
-                    : _buildCountWiseContent(counterState, insightsState, settings),
+                    ? _buildMalaWiseContent(
+                        counterState, insightsState, settings)
+                    : _buildCountWiseContent(
+                        counterState, insightsState, settings),
               ),
             ),
 
             // Auto Count Toggle
             _buildAutoCountToggle(settings),
-            
+
             const SizedBox(height: 8),
 
             // Session stats bar
@@ -544,10 +520,10 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
                 context,
                 MaterialPageRoute(builder: (context) => const InsightsScreen()),
               ),
-              onResetTap: _onResetTap,
               onLeaderboardTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const LeaderboardScreen()),
+                MaterialPageRoute(
+                    builder: (context) => const LeaderboardScreen()),
               ),
             ),
           ],
@@ -561,12 +537,12 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: _isAutoCountActive 
+        color: _isAutoCountActive
             ? AppColors.success.withValues(alpha: 0.15)
             : AppColors.cardBackground,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _isAutoCountActive 
+          color: _isAutoCountActive
               ? AppColors.success.withValues(alpha: 0.3)
               : Colors.transparent,
         ),
@@ -587,8 +563,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
                     Text(
                       'Auto Chant',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                     const SizedBox(width: 4),
                     GestureDetector(
@@ -602,7 +578,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
                   ],
                 ),
                 Text(
-                  _isAutoCountActive 
+                  _isAutoCountActive
                       ? 'Every ${_formatSpeed(settings.autoCountSpeed)}'
                       : 'Automatic chanting mode',
                   style: TextStyle(
@@ -618,9 +594,9 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
             IconButton(
               icon: const Icon(Icons.remove_circle_outline, size: 20),
               color: AppColors.textMuted,
-              onPressed: settings.autoCountSpeed > 0.25 
-                  ? () => ref.read(settingsProvider.notifier)
-                      .setAutoCountSpeed(_decreaseSpeed(settings.autoCountSpeed))
+              onPressed: settings.autoCountSpeed > 0.25
+                  ? () => ref.read(settingsProvider.notifier).setAutoCountSpeed(
+                      _decreaseSpeed(settings.autoCountSpeed))
                   : null,
             ),
             Text(
@@ -634,8 +610,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
               icon: const Icon(Icons.add_circle_outline, size: 20),
               color: AppColors.textMuted,
               onPressed: settings.autoCountSpeed < 5.0
-                  ? () => ref.read(settingsProvider.notifier)
-                      .setAutoCountSpeed(_increaseSpeed(settings.autoCountSpeed))
+                  ? () => ref.read(settingsProvider.notifier).setAutoCountSpeed(
+                      _increaseSpeed(settings.autoCountSpeed))
                   : null,
             ),
           ],
@@ -644,9 +620,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
           ElevatedButton(
             onPressed: _toggleAutoCount,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isAutoCountActive 
-                  ? Colors.red.shade400
-                  : AppColors.primary,
+              backgroundColor:
+                  _isAutoCountActive ? Colors.red.shade400 : AppColors.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -663,15 +638,15 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   /// Reminder toggle button
   Widget _buildReminderButton() {
     final settings = ref.watch(settingsProvider);
-    
+
     return Container(
       decoration: BoxDecoration(
-        color: settings.reminderEnabled 
+        color: settings.reminderEnabled
             ? AppColors.primary.withValues(alpha: 0.15)
             : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: settings.reminderEnabled 
+          color: settings.reminderEnabled
               ? AppColors.primary.withValues(alpha: 0.3)
               : AppColors.primary.withValues(alpha: 0.1),
         ),
@@ -687,11 +662,11 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  settings.reminderEnabled 
-                      ? Icons.notifications_active 
+                  settings.reminderEnabled
+                      ? Icons.notifications_active
                       : Icons.notifications_none,
-                  color: settings.reminderEnabled 
-                      ? AppColors.primary 
+                  color: settings.reminderEnabled
+                      ? AppColors.primary
                       : AppColors.textMuted,
                   size: 18,
                 ),
@@ -709,7 +684,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     final beadSize = _goalMissInfo != null
         ? MediaQuery.of(context).size.height * 0.28
         : MediaQuery.of(context).size.height * 0.35;
-    
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -720,18 +695,18 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
           size: beadSize,
           centerImagePath: settings.centerImagePath,
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Main Counter Display
         CounterDisplay(
           count: insightsState.todayStats.counts,
           malasCompleted: insightsState.todayStats.malas,
           interfaceMode: InterfaceMode.malaWise,
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         _buildTapInstruction(),
       ],
     );
@@ -743,7 +718,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     final beadSize = _goalMissInfo != null
         ? MediaQuery.of(context).size.height * 0.18
         : MediaQuery.of(context).size.height * 0.22;
-    
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -754,18 +729,18 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
           size: beadSize,
           centerImagePath: settings.centerImagePath,
         ),
-        
+
         const SizedBox(height: 24),
-        
+
         // Main Counter Display - count-wise style
         CounterDisplay(
           count: insightsState.todayStats.counts,
           malasCompleted: insightsState.todayStats.malas,
           interfaceMode: InterfaceMode.countWise,
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         _buildTapInstruction(),
       ],
     );
@@ -800,7 +775,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
         ),
       );
     }
-    
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -813,8 +788,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
         Text(
           'Tap to count',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.textMuted,
-          ),
+                color: AppColors.textMuted,
+              ),
         ),
       ],
     );

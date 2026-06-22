@@ -159,15 +159,6 @@ class CounterNotifier extends StateNotifier<CounterState> {
     }
   }
 
-  /// Reset the current session
-  Future<void> resetSession() async {
-    // Save lifetime stats before reset
-    await _updateLifetimeStats();
-
-    state = CounterState.initial();
-    await _saveState();
-  }
-
   /// Update lifetime statistics
   Future<void> _updateLifetimeStats() async {
     final prefs = await SharedPreferences.getInstance();

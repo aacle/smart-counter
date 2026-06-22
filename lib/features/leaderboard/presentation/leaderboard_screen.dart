@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/theme/colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/leaderboard_provider.dart';
@@ -32,19 +33,22 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           'Leaderboard',
           style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
         ),
-        centerTitle: true,
+        centerTitle: false,
         backgroundColor: AppColors.background,
         elevation: 0,
       ),
       body: !authState.isAuthenticated
           ? _buildAuthGate()
-              : state.isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
-                    )
-              : state.error != null
+          : state.isLoading && state.topUsers.isEmpty
+              ? _buildShimmer()
+              : state.error != null && state.topUsers.isEmpty
                   ? _buildError()
-                  : _buildContent(state),
+                  : RefreshIndicator(
+                      color: AppColors.primary,
+                      backgroundColor: AppColors.cardBackground,
+                      onRefresh: () => ref.read(leaderboardProvider.notifier).load(),
+                      child: _buildContent(state),
+                    ),
     );
   }
 
@@ -134,14 +138,31 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     );
   }
 
+  Widget _buildShimmer() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        const SizedBox(height: 24),
+        _CategoryBar(
+          selected: LeaderboardCategory.totalCounts,
+          onSelect: (_) {},
+        ),
+        const SizedBox(height: 24),
+        for (int i = 0; i < 5; i++)
+          _ShimmerRow(index: i),
+      ],
+    );
+  }
+
   Widget _buildContent(LeaderboardState state) {
     final topUsers = state.topUsers;
     final currentUser = state.currentUser;
+    final category = state.category;
 
     return Column(
       children: [
         _CategoryBar(
-          selected: state.category,
+          selected: category,
           onSelect: (cat) => ref.read(leaderboardProvider.notifier).setCategory(cat),
         ),
         Expanded(
@@ -158,19 +179,89 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               : ListView(
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [
-                    if (topUsers.length >= 3) _Podium(topUsers: topUsers.take(3).toList()),
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
-                      child: _SectionHeader(),
-                    ),
-                    ...topUsers.skip(3).map((user) => _RankRow(user: user)),
-                    if (topUsers.length <= 3)
-                      ...topUsers.map((user) => _RankRow(user: user)),
+                    if (topUsers.length >= 3)
+                      _Podium(topUsers: topUsers.take(3).toList(), category: category),
+                    if (topUsers.length > 3) ...[
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
+                        child: _SectionHeader(),
+                      ),
+                      ...topUsers.skip(3).map((user) => _RankRow(
+                            user: user,
+                            category: category,
+                            isCurrentUser: currentUser?.userId == user.userId,
+                          )),
+                    ],
+                    if (topUsers.length < 3) ...[
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
+                        child: _SectionHeader(),
+                      ),
+                      ...topUsers.map((user) => _RankRow(
+                            user: user,
+                            category: category,
+                            isCurrentUser: currentUser?.userId == user.userId,
+                          )),
+                    ],
                   ],
                 ),
         ),
-        if (currentUser != null) _CurrentUserBanner(user: currentUser),
+        if (currentUser != null &&
+            topUsers.every((u) => u.userId != currentUser.userId))
+          _CurrentUserBanner(user: currentUser, category: category),
       ],
+    );
+  }
+}
+
+class _ShimmerRow extends StatelessWidget {
+  final int index;
+  const _ShimmerRow({required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 16,
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const CircleAvatar(
+            radius: 16,
+            backgroundColor: Color(0xFF2A2A3A),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              height: 14,
+              decoration: BoxDecoration(
+                color: AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 50,
+            height: 14,
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ],
+      ),
+    ).animate().shimmer(
+      duration: const Duration(milliseconds: 1500),
+      delay: (index * 100).ms,
+      color: AppColors.primary.withValues(alpha: 0.05),
     );
   }
 }
@@ -188,12 +279,18 @@ class _CategoryBar extends StatelessWidget {
       child: Row(
         children: LeaderboardCategory.values.map((cat) {
           final isSelected = cat == selected;
+          final icon = switch (cat) {
+            LeaderboardCategory.totalCounts => Icons.history_rounded,
+            LeaderboardCategory.todayCounts => Icons.today_rounded,
+            LeaderboardCategory.currentStreak => Icons.local_fire_department_rounded,
+          };
           return Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: GestureDetector(
                 onTap: () => onSelect(cat),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
                     color: isSelected
@@ -204,14 +301,24 @@ class _CategoryBar extends StatelessWidget {
                         ? Border.all(color: AppColors.primary.withValues(alpha: 0.4))
                         : null,
                   ),
-                  child: Text(
-                    cat.label,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected ? AppColors.primary : AppColors.textMuted,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 14,
+                        color: isSelected ? AppColors.primary : AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        cat.label,
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? AppColors.primary : AppColors.textMuted,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -225,8 +332,9 @@ class _CategoryBar extends StatelessWidget {
 
 class _Podium extends StatelessWidget {
   final List<LeaderboardEntry> topUsers;
+  final LeaderboardCategory category;
 
-  const _Podium({required this.topUsers});
+  const _Podium({required this.topUsers, required this.category});
 
   @override
   Widget build(BuildContext context) {
@@ -246,11 +354,11 @@ class _Podium extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (entries.length > 1) _PodiumCard(entry: entries[1]),
+          if (entries.length > 1) _PodiumCard(entry: entries[1], category: category),
           const SizedBox(width: 12),
-          _PodiumCard(entry: entries[0]),
+          _PodiumCard(entry: entries[0], category: category),
           const SizedBox(width: 12),
-          if (entries.length > 2) _PodiumCard(entry: entries[2]),
+          if (entries.length > 2) _PodiumCard(entry: entries[2], category: category),
         ],
       ),
     );
@@ -272,8 +380,9 @@ class _PodiumEntry {
 
 class _PodiumCard extends StatelessWidget {
   final _PodiumEntry entry;
+  final LeaderboardCategory category;
 
-  const _PodiumCard({required this.entry});
+  const _PodiumCard({required this.entry, required this.category});
 
   @override
   Widget build(BuildContext context) {
@@ -303,13 +412,24 @@ class _PodiumCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          _formatCount(entry.user.totalCounts),
-          style: GoogleFonts.outfit(
-            fontSize: 11,
-            color: entry.color,
-            fontWeight: FontWeight.w500,
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (category == LeaderboardCategory.currentStreak)
+              Padding(
+                padding: const EdgeInsets.only(right: 3),
+                child: Icon(Icons.local_fire_department_rounded,
+                    size: 12, color: Colors.orangeAccent),
+              ),
+            Text(
+              _formatMetric(entry.user, category),
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                color: entry.color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Container(
@@ -324,7 +444,7 @@ class _PodiumCard extends StatelessWidget {
                 entry.color.withValues(alpha: 0.08),
               ],
             ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Center(
             child: Text(
@@ -374,17 +494,21 @@ class _AvatarWidget extends StatelessWidget {
                   )]
                 : null,
           ),
-          child: avatarUrl != null
-              ? ClipOval(
-                  child: Image.network(
+          child: ClipOval(
+            child: avatarUrl != null && avatarUrl!.isNotEmpty
+                ? Image.network(
                     avatarUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _defaultAvatar(),
-                    loadingBuilder: (_, child, progress) =>
-                        progress == null ? child : _defaultAvatar(),
-                  ),
-                )
-              : _defaultAvatar(),
+                    width: size,
+                    height: size,
+                    errorBuilder: (_, __, ___) => _defaultAvatar(size),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const SizedBox.shrink();
+                    },
+                  )
+                : _defaultAvatar(size),
+          ),
         ),
         if (badge)
           Positioned(
@@ -404,15 +528,22 @@ class _AvatarWidget extends StatelessWidget {
     );
   }
 
-  Widget _defaultAvatar() {
-    return CircleAvatar(
-      backgroundColor: AppColors.cardBackground,
-      child: Text(
-        initial,
-        style: GoogleFonts.outfit(
-          fontSize: size * 0.4,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primary,
+  Widget _defaultAvatar(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0xFF2A2A3A),
+      ),
+      child: Center(
+        child: Text(
+          initial,
+          style: GoogleFonts.outfit(
+            fontSize: size * 0.4,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
+          ),
         ),
       ),
     );
@@ -463,63 +594,111 @@ class _SectionHeader extends StatelessWidget {
 
 class _RankRow extends StatelessWidget {
   final LeaderboardEntry user;
+  final LeaderboardCategory category;
+  final bool isCurrentUser;
 
-  const _RankRow({required this.user});
+  const _RankRow({
+    required this.user,
+    required this.category,
+    this.isCurrentUser = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 36,
-            child: Text(
-              '#${user.rank}',
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: user.rank <= 3 ? AppColors.primary : AppColors.textMuted,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        decoration: BoxDecoration(
+          color: isCurrentUser
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 36,
+                child: Text(
+                  '#${user.rank}',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: user.rank <= 3 ? AppColors.primary : AppColors.textMuted,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          _AvatarWidget(
-            avatarUrl: user.avatarUrl,
-            initial: user.initial,
-            size: 32,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              user.displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary,
+              const SizedBox(width: 8),
+              _AvatarWidget(
+                avatarUrl: user.avatarUrl,
+                initial: user.initial,
+                size: 32,
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  isCurrentUser ? 'You' : user.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: isCurrentUser ? FontWeight.w700 : FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (category == LeaderboardCategory.currentStreak && user.currentStreak > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(Icons.local_fire_department_rounded,
+                          size: 14, color: Colors.orangeAccent),
+                    ),
+                  Text(
+                    _formatMetric(user, category),
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isCurrentUser ? AppColors.primary : AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              if (isCurrentUser)
+                Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'YOU',
+                    style: GoogleFonts.outfit(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          Text(
-            _formatCount(user.totalCounts),
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
+        ),
       ),
-    );
+    ).animate().fadeIn(duration: 300.ms, delay: (user.rank * 30).ms);
   }
 }
 
 class _CurrentUserBanner extends StatelessWidget {
   final LeaderboardEntry user;
+  final LeaderboardCategory category;
 
-  const _CurrentUserBanner({required this.user});
+  const _CurrentUserBanner({required this.user, required this.category});
 
   @override
   Widget build(BuildContext context) {
@@ -567,13 +746,24 @@ class _CurrentUserBanner extends StatelessWidget {
                 ),
               ),
             ),
-            Text(
-              _formatCount(user.totalCounts),
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (category == LeaderboardCategory.currentStreak && user.currentStreak > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(Icons.local_fire_department_rounded,
+                        size: 14, color: Colors.orangeAccent),
+                  ),
+                Text(
+                  _formatMetric(user, category),
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -582,7 +772,17 @@ class _CurrentUserBanner extends StatelessWidget {
   }
 }
 
-String _formatCount(int count) {
+String _formatMetric(LeaderboardEntry user, LeaderboardCategory category) {
+  final count = switch (category) {
+    LeaderboardCategory.totalCounts => user.totalCounts,
+    LeaderboardCategory.todayCounts => user.todayCounts,
+    LeaderboardCategory.currentStreak => user.currentStreak,
+  };
+
+  if (category == LeaderboardCategory.currentStreak) {
+    return '${count}d';
+  }
+
   if (count >= 100000) {
     return '${(count / 100000).toStringAsFixed(1)}L';
   } else if (count >= 1000) {
@@ -590,3 +790,5 @@ String _formatCount(int count) {
   }
   return count.toString();
 }
+
+

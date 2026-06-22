@@ -140,17 +140,22 @@ class CloudDataRepository implements DataRepository {
 
   @override
   Future<void> saveLifetimeStats(LifetimeStats stats) async {
-    await _upsert(
+    final existing = await _getDoc(
       collectionId: _userProfiles,
       documentId: _userId,
-      data: {
+    );
+
+    await _upsertProfile(
+      {
         'user_id': _userId,
-        'display_name': '', // Will be set by SyncService
+        'display_name': existing?.data['display_name'] as String? ?? '',
+        'avatar_url': existing?.data['avatar_url'] as String? ?? '',
         'total_counts': stats.totalCounts,
         'total_malas': stats.totalMalas,
         'total_sessions': stats.totalSessions,
-        'current_streak': 0,
-        'best_streak': 0,
+        'current_streak': existing?.data['current_streak'] as int? ?? 0,
+        'best_streak': existing?.data['best_streak'] as int? ?? 0,
+        'today_counts': existing?.data['today_counts'] as int? ?? 0,
         'last_sync_at': _nowIso(),
       },
     );
@@ -323,10 +328,14 @@ class CloudDataRepository implements DataRepository {
     // Save daily stats
     await saveDailyStats(dailyStats);
 
-    // Update user profile with streak data
-    await _upsertUserProfile(
+    final totals = _aggregateDailyStats(dailyStats);
+    await upsertFullProfile(
+      totalCounts: totals.totalCounts,
+      totalMalas: totals.totalMalas,
+      totalSessions: totals.totalSessions,
       currentStreak: currentStreak,
       bestStreak: bestStreak,
+      todayCounts: dailyStats[_todayKey()]?.counts ?? 0,
     );
   }
 
@@ -382,14 +391,14 @@ class CloudDataRepository implements DataRepository {
       collectionId: _userProfiles,
       documentId: _userId,
     );
-    
-    await _upsert(
-      collectionId: _userProfiles,
-      documentId: _userId,
-      data: {
+
+    await _upsertProfile(
+      {
         'user_id': _userId,
-        'display_name': displayName ?? existing?.data['display_name'] as String? ?? '',
-        'avatar_url': avatarUrl ?? existing?.data['avatar_url'] as String? ?? '',
+        'display_name':
+            displayName ?? existing?.data['display_name'] as String? ?? '',
+        'avatar_url':
+            avatarUrl ?? existing?.data['avatar_url'] as String? ?? '',
         'total_counts': totalCounts,
         'total_malas': totalMalas,
         'total_sessions': totalSessions,
@@ -399,6 +408,65 @@ class CloudDataRepository implements DataRepository {
         'last_sync_at': _nowIso(),
       },
     );
+  }
+
+  Future<void> _upsertProfile(Map<String, dynamic> data) async {
+    try {
+      // ignore: deprecated_member_use
+      await _databases.upsertDocument(
+        databaseId: _db,
+        collectionId: _userProfiles,
+        documentId: _userId,
+        data: data,
+        permissions: [
+          Permission.read(Role.user(_userId)),
+          Permission.update(Role.user(_userId)),
+          Permission.delete(Role.user(_userId)),
+        ],
+      );
+      AppLogger.info(_tag, 'Updated user profile aggregates');
+    } on AppwriteException catch (e, st) {
+      final message = e.message ?? '';
+      final canRetryWithoutNewFields =
+          message.contains('avatar_url') || message.contains('today_counts');
+
+      if (!canRetryWithoutNewFields) {
+        AppLogger.error(_tag, 'Profile upsert failed', e, st);
+        return;
+      }
+
+      final fallback = Map<String, dynamic>.from(data)
+        ..remove('avatar_url')
+        ..remove('today_counts');
+
+      try {
+        // Keep all-time leaderboard totals updating even before the Appwrite
+        // schema migration has been run for newer optional profile fields.
+        // ignore: deprecated_member_use
+        await _databases.upsertDocument(
+          databaseId: _db,
+          collectionId: _userProfiles,
+          documentId: _userId,
+          data: fallback,
+          permissions: [
+            Permission.read(Role.user(_userId)),
+            Permission.update(Role.user(_userId)),
+            Permission.delete(Role.user(_userId)),
+          ],
+        );
+        AppLogger.info(
+          _tag,
+          'Updated user profile aggregates without new optional fields',
+        );
+      } on AppwriteException catch (fallbackError, fallbackStack) {
+        AppLogger.error(
+          _tag,
+          'Profile fallback upsert failed',
+          fallbackError,
+          fallbackStack,
+        );
+      }
+    }
   }
 
   Future<void> _upsertUserProfile({
@@ -411,20 +479,43 @@ class CloudDataRepository implements DataRepository {
       documentId: _userId,
     );
 
-    await _upsert(
-      collectionId: _userProfiles,
-      documentId: _userId,
-      data: {
+    await _upsertProfile(
+      {
         'user_id': _userId,
         'display_name': existing?.data['display_name'] as String? ?? '',
+        'avatar_url': existing?.data['avatar_url'] as String? ?? '',
         'total_counts': existing?.data['total_counts'] as int? ?? 0,
         'total_malas': existing?.data['total_malas'] as int? ?? 0,
         'total_sessions': existing?.data['total_sessions'] as int? ?? 0,
         'current_streak': currentStreak,
         'best_streak': bestStreak,
+        'today_counts': existing?.data['today_counts'] as int? ?? 0,
         'last_sync_at': _nowIso(),
       },
     );
+  }
+
+  LifetimeStats _aggregateDailyStats(Map<String, DailyStats> dailyStats) {
+    var totalCounts = 0;
+    var totalMalas = 0;
+    var totalSessions = 0;
+
+    for (final day in dailyStats.values) {
+      totalCounts += day.counts;
+      totalMalas += day.malas;
+      totalSessions += day.sessions;
+    }
+
+    return LifetimeStats(
+      totalCounts: totalCounts,
+      totalMalas: totalMalas,
+      totalSessions: totalSessions,
+    );
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   /// Load a single daily stats document from cloud for a given date.
@@ -511,7 +602,7 @@ class CloudDataRepository implements DataRepository {
           Query.limit(1),
         ],
       );
-      return result.documents.length + 1;
+      return result.total + 1;
     } on AppwriteException catch (e, st) {
       AppLogger.error(_tag, 'getUserRank failed', e, st);
       return 0;

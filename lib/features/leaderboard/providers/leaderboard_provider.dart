@@ -153,6 +153,9 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
   }
 
   int _getTodayCounts() {
+    final insights = _ref.read(insightsProvider);
+    final today = insights.dailyStats[_todayKey()];
+    if (today != null && today.counts > 0) return today.counts;
     final counter = _ref.read(counterProvider);
     return counter.count;
   }
@@ -160,6 +163,11 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
   int _getStreak() {
     final insights = _ref.read(insightsProvider);
     return insights.currentStreak;
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   void setCategory(LeaderboardCategory category) {

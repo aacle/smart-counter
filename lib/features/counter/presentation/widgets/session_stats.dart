@@ -5,14 +5,12 @@ import '../../../../core/theme/colors.dart';
 class SessionStats extends StatelessWidget {
   final Duration sessionDuration;
   final VoidCallback onInsightsTap;
-  final VoidCallback onResetTap;
   final VoidCallback onLeaderboardTap;
 
   const SessionStats({
     super.key,
     required this.sessionDuration,
     required this.onInsightsTap,
-    required this.onResetTap,
     required this.onLeaderboardTap,
   });
 
@@ -33,35 +31,38 @@ class SessionStats extends StatelessWidget {
         top: false,
         child: Row(
           children: [
-            // Jap timer
-            _StatItem(
-              icon: Icons.timer_outlined,
-              label: _formatDuration(sessionDuration),
-              color: sessionDuration > Duration.zero 
-                  ? AppColors.primary 
-                  : AppColors.textSecondary,
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  onPressed: onInsightsTap,
+                  icon: const Icon(Icons.insights_rounded),
+                  color: AppColors.textMuted,
+                  tooltip: 'Insights',
+                ),
+              ),
             ),
-
-            const Spacer(),
-
-            // Action buttons
-            IconButton(
-              onPressed: onLeaderboardTap,
-              icon: const Icon(Icons.leaderboard_rounded),
-              color: AppColors.textMuted,
-              tooltip: 'Leaderboard',
+            Expanded(
+              child: Center(
+                child: _StatItem(
+                  icon: Icons.timer_outlined,
+                  label: _formatDuration(sessionDuration),
+                  color: sessionDuration > Duration.zero
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
+                ),
+              ),
             ),
-            IconButton(
-              onPressed: onResetTap,
-              icon: const Icon(Icons.refresh_outlined),
-              color: AppColors.textMuted,
-              tooltip: 'Reset Counter',
-            ),
-            IconButton(
-              onPressed: onInsightsTap,
-              icon: const Icon(Icons.bar_chart_rounded),
-              color: AppColors.textMuted,
-              tooltip: 'Insights',
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  onPressed: onLeaderboardTap,
+                  icon: const Icon(Icons.emoji_events_rounded),
+                  color: AppColors.textMuted,
+                  tooltip: 'Leaderboard',
+                ),
+              ),
             ),
           ],
         ),

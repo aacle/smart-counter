@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/enums.dart';
 import 'package:appwrite/models.dart' as models;
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/appwrite_constants.dart';
 import '../../core/utils/app_logger.dart';
 import 'domain/app_user.dart';
@@ -59,11 +62,11 @@ class AuthService {
   Future<AppUser?> restoreSession() async {
     try {
       final user = await _account.get();
-      final appUser = _mapUser(user);
+      final avatarUrl = await _cachedAvatarUrl();
+      final appUser = _mapUser(user, avatarUrl: avatarUrl);
       AppLogger.info(_tag, 'Session restored for ${appUser.displayName}');
       return appUser;
     } on AppwriteException catch (e) {
-      // 401 = no active session — expected for first-time / signed-out users
       if (e.code == 401) {
         AppLogger.info(_tag, 'No active session');
       } else {
@@ -89,16 +92,17 @@ class AuthService {
     try {
       AppLogger.info(_tag, 'Starting Google OAuth flow...');
 
-      // createOAuth2Session opens a browser, handles the redirect,
-      // and stores the session cookie automatically.
       await _account.createOAuth2Session(
         provider: OAuthProvider.google,
         scopes: ['profile', 'email'],
       );
 
-      // After the OAuth redirect completes, fetch the user profile.
       final user = await _account.get();
-      final appUser = _mapUser(user);
+      final avatarUrl = await _fetchGoogleAvatar();
+      if (avatarUrl != null) {
+        await _cacheAvatarUrl(avatarUrl);
+      }
+      final appUser = _mapUser(user, avatarUrl: avatarUrl);
       AppLogger.info(_tag, 'Signed in as ${appUser.displayName}');
       return appUser;
     } on AppwriteException catch (e) {
@@ -144,12 +148,61 @@ class AuthService {
   // ── Private Helpers ─────────────────────────────────────────────
 
   /// Convert Appwrite [models.User] → domain [AppUser].
-  AppUser _mapUser(models.User user) {
+  AppUser _mapUser(models.User user, {String? avatarUrl}) {
     return AppUser(
       id: user.$id,
       name: user.name,
       email: user.email,
+      avatarUrl: avatarUrl,
       createdAt: DateTime.parse(user.$createdAt),
     );
+  }
+
+  /// Fetch real Google profile picture URL using the OAuth access token.
+  Future<String?> _fetchGoogleAvatar() async {
+    try {
+      final sessions = await _account.listSessions();
+      final googleSession = sessions.sessions
+          .cast<models.Session?>()
+          .firstWhere((s) => s?.provider == 'google',
+              orElse: () => null);
+      if (googleSession == null) return null;
+
+      final token = googleSession.providerAccessToken;
+      if (token.isEmpty) return null;
+
+      final client = http.Client();
+      try {
+        final response = await client.get(
+          Uri.parse('https://www.googleapis.com/oauth2/v2/userinfo'),
+          headers: {'Authorization': 'Bearer $token'},
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final pic = data['picture'] as String?;
+          if (pic != null && pic.isNotEmpty) {
+            // Ensure HTTPS
+            return pic.startsWith('http://') ? pic.replaceFirst('http://', 'https://') : pic;
+          }
+        }
+      } finally {
+        client.close();
+      }
+    } catch (e, st) {
+      AppLogger.error(_tag, 'Failed to fetch Google avatar', e, st);
+    }
+    return null;
+  }
+
+  static const _avatarCacheKey = 'cached_google_avatar_url';
+
+  Future<void> _cacheAvatarUrl(String url) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_avatarCacheKey, url);
+  }
+
+  Future<String?> _cachedAvatarUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_avatarCacheKey);
   }
 }

@@ -25,7 +25,8 @@ class MalaBeads extends StatefulWidget {
   State<MalaBeads> createState() => _MalaBeadsState();
 }
 
-class _MalaBeadsState extends State<MalaBeads> with SingleTickerProviderStateMixin {
+class _MalaBeadsState extends State<MalaBeads>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _positionAnimation;
   int _previousBead = 0;
@@ -45,17 +46,17 @@ class _MalaBeadsState extends State<MalaBeads> with SingleTickerProviderStateMix
   void didUpdateWidget(MalaBeads oldWidget) {
     super.didUpdateWidget(oldWidget);
     final newBead = widget.currentCount % kMalaSize;
-    
+
     if (newBead != _previousBead) {
       double startPos = _previousBead.toDouble();
       double endPos = newBead.toDouble();
-      
+
       // Handle wrap-around: when going from 107 to 0, continue forward
       if (_previousBead > 100 && newBead == 0) {
         // Complete the circle by going to 108 (same as 0)
         endPos = kMalaSize.toDouble();
       }
-      
+
       _positionAnimation = Tween<double>(
         begin: startPos,
         end: endPos,
@@ -63,14 +64,14 @@ class _MalaBeadsState extends State<MalaBeads> with SingleTickerProviderStateMix
         parent: _animationController,
         curve: Curves.easeOut,
       ));
-      
+
       _animationController.forward(from: 0).then((_) {
         // After animation completes, reset to actual position
         if (endPos >= kMalaSize) {
           _positionAnimation = AlwaysStoppedAnimation(0);
         }
       });
-      
+
       _previousBead = newBead;
     }
   }
@@ -126,15 +127,13 @@ class _MalaBeadsState extends State<MalaBeads> with SingleTickerProviderStateMix
     );
   }
 
-
-
   Widget _buildCenterContent(BuildContext context, int currentBead) {
-    final hasImage = widget.centerImagePath != null && 
-                     File(widget.centerImagePath!).existsSync();
-    
+    final hasImage = widget.centerImagePath != null &&
+        File(widget.centerImagePath!).existsSync();
+
     // Calculate the inner circle size - fills the bead circle
     final innerSize = widget.size * 0.72;
-    
+
     // If image is set, show only the image (no count text)
     if (hasImage) {
       return Container(
@@ -156,7 +155,7 @@ class _MalaBeadsState extends State<MalaBeads> with SingleTickerProviderStateMix
         ),
       );
     }
-    
+
     // Default: show count text (no image)
     return SizedBox(
       width: innerSize,
@@ -201,6 +200,10 @@ class _MalaBeadsPainter extends CustomPainter {
     final radius = (size.width / 2) - 16;
     // Slightly smaller beads for cleaner look
     final beadRadius = (radius * math.pi * 2) / (kMalaSize * 3.5);
+    final completedInCurrentMala =
+        completedBeads > 0 && completedBeads % kMalaSize == 0
+            ? kMalaSize
+            : completedBeads % kMalaSize;
 
     // Paint each bead
     for (int i = 0; i < kMalaSize; i++) {
@@ -209,7 +212,7 @@ class _MalaBeadsPainter extends CustomPainter {
       final y = center.dy + radius * math.sin(angle);
 
       final isCurrentBead = i == currentBead;
-      final isCompleted = i < currentBead || completedBeads >= kMalaSize;
+      final isCompleted = i < completedInCurrentMala;
       final isQuarterMark = i % kQuarterMala == 0;
 
       // Bead paint
@@ -222,8 +225,7 @@ class _MalaBeadsPainter extends CustomPainter {
                 : AppColors.beadInactive;
 
       // Draw bead - subtle quarter marks (only 10% larger, not 30%)
-      final actualBeadRadius =
-          isQuarterMark ? beadRadius * 1.1 : beadRadius;
+      final actualBeadRadius = isQuarterMark ? beadRadius * 1.1 : beadRadius;
       canvas.drawCircle(Offset(x, y), actualBeadRadius, paint);
 
       // Draw highlight on current bead
@@ -247,7 +249,9 @@ class _MalaBeadsPainter extends CustomPainter {
         end: Alignment.bottomRight,
         colors: [AppColors.primary, AppColors.secondary],
       ).createShader(
-        Rect.fromCircle(center: Offset(center.dx, center.dy - radius), radius: beadRadius * 2),
+        Rect.fromCircle(
+            center: Offset(center.dx, center.dy - radius),
+            radius: beadRadius * 2),
       );
 
     // Draw the Sumeru bead (head bead) at the top - smaller

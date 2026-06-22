@@ -58,6 +58,7 @@ dependencies:
   package_info_plus: ^9.0.0
   share_plus: ^12.0.1
   appwrite: ^25.1.0
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
