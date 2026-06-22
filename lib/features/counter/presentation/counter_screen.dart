@@ -21,6 +21,7 @@ import '../../insights/presentation/widgets/goal_miss_banner.dart';
 import '../../common/rate_us_dialog.dart';
 import '../../../services/report_service.dart';
 import '../../../services/feedback_service.dart';
+import '../../onboarding/presentation/onboarding_screen.dart';
 import 'widgets/mala_beads.dart';
 import 'widgets/counter_display.dart';
 import 'widgets/session_stats.dart';
@@ -75,9 +76,12 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     await _feedbackService.initialize();
     
     // Apply initial settings
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final settings = ref.read(settingsProvider);
       _applySettings(settings);
+
+      await OnboardingScreen.checkAndShow(context, ref);
+
       _checkForReports();
     });
   }

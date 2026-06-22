@@ -35,6 +35,7 @@ class StorageKeys {
 
   // ── Auth & Migration (owned by app layer) ──
   static const hasSeenMigrationPopup = 'has_seen_migration_popup';
+  static const hasSeenOnboarding = 'has_seen_onboarding';
 
   // ── DEPRECATED — scheduled for removal ──
   // These are redundant with daily_stats aggregation.
