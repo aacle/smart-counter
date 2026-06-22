@@ -6,8 +6,11 @@ import '../core/utils/app_logger.dart';
 import '../features/auth/auth_service.dart';
 import '../features/counter/domain/counter_state.dart';
 import '../features/insights/domain/daily_stats.dart';
+import '../../features/leaderboard/domain/leaderboard_entry.dart';
 import '../features/settings/domain/settings_state.dart';
 import 'data_repository.dart';
+
+enum LeaderboardSort { totalCounts, todayCounts, currentStreak }
 
 const _tag = 'CloudDataRepository';
 
@@ -367,13 +370,14 @@ class CloudDataRepository implements DataRepository {
   /// Upsert the user profile document with all aggregated data.
   Future<void> upsertFullProfile({
     String? displayName,
+    String? avatarUrl,
     required int totalCounts,
     required int totalMalas,
     required int totalSessions,
     required int currentStreak,
     required int bestStreak,
+    required int todayCounts,
   }) async {
-    // Read existing profile to preserve display_name if not provided
     final existing = await _getDoc(
       collectionId: _userProfiles,
       documentId: _userId,
@@ -385,11 +389,13 @@ class CloudDataRepository implements DataRepository {
       data: {
         'user_id': _userId,
         'display_name': displayName ?? existing?.data['display_name'] as String? ?? '',
+        'avatar_url': avatarUrl ?? existing?.data['avatar_url'] as String? ?? '',
         'total_counts': totalCounts,
         'total_malas': totalMalas,
         'total_sessions': totalSessions,
         'current_streak': currentStreak,
         'best_streak': bestStreak,
+        'today_counts': todayCounts,
         'last_sync_at': _nowIso(),
       },
     );
@@ -441,5 +447,74 @@ class CloudDataRepository implements DataRepository {
   /// Save a single daily stats entry. Used by SyncService.
   Future<void> saveSingleDailyStats(String date, DailyStats stats) async {
     await _upsertDailyStatsDoc(date, stats);
+  }
+
+  // ── Leaderboard ─────────────────────────────────────────────────
+
+  Future<List<LeaderboardEntry>> getTopUsers({
+    int limit = 50,
+    LeaderboardSort sortBy = LeaderboardSort.totalCounts,
+  }) async {
+    final sortAttr = switch (sortBy) {
+      LeaderboardSort.totalCounts => 'total_counts',
+      LeaderboardSort.todayCounts => 'today_counts',
+      LeaderboardSort.currentStreak => 'current_streak',
+    };
+
+    try {
+      final result = await _databases.listDocuments(
+        databaseId: _db,
+        collectionId: _userProfiles,
+        queries: [
+          Query.orderDesc(sortAttr),
+          Query.limit(limit),
+        ],
+      );
+
+      return result.documents.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final doc = entry.value;
+        final data = doc.data;
+        return LeaderboardEntry(
+          userId: data['user_id'] as String? ?? '',
+          displayName: data['display_name'] as String? ?? 'Anonymous',
+          avatarUrl: data['avatar_url'] as String?,
+          totalCounts: data['total_counts'] as int? ?? 0,
+          totalMalas: data['total_malas'] as int? ?? 0,
+          currentStreak: data['current_streak'] as int? ?? 0,
+          todayCounts: data['today_counts'] as int? ?? 0,
+          rank: idx + 1,
+        );
+      }).toList();
+    } on AppwriteException catch (e, st) {
+      AppLogger.error(_tag, 'getTopUsers failed', e, st);
+      return [];
+    }
+  }
+
+  Future<int> getUserRank({
+    required int totalCounts,
+    LeaderboardSort sortBy = LeaderboardSort.totalCounts,
+  }) async {
+    final sortAttr = switch (sortBy) {
+      LeaderboardSort.totalCounts => 'total_counts',
+      LeaderboardSort.todayCounts => 'today_counts',
+      LeaderboardSort.currentStreak => 'current_streak',
+    };
+
+    try {
+      final result = await _databases.listDocuments(
+        databaseId: _db,
+        collectionId: _userProfiles,
+        queries: [
+          Query.greaterThan(sortAttr, totalCounts),
+          Query.limit(1),
+        ],
+      );
+      return result.documents.length + 1;
+    } on AppwriteException catch (e, st) {
+      AppLogger.error(_tag, 'getUserRank failed', e, st);
+      return 0;
+    }
   }
 }

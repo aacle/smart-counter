@@ -6,12 +6,14 @@ class SessionStats extends StatelessWidget {
   final Duration sessionDuration;
   final VoidCallback onInsightsTap;
   final VoidCallback onResetTap;
+  final VoidCallback onLeaderboardTap;
 
   const SessionStats({
     super.key,
     required this.sessionDuration,
     required this.onInsightsTap,
     required this.onResetTap,
+    required this.onLeaderboardTap,
   });
 
   @override
@@ -43,6 +45,12 @@ class SessionStats extends StatelessWidget {
             const Spacer(),
 
             // Action buttons
+            IconButton(
+              onPressed: onLeaderboardTap,
+              icon: const Icon(Icons.leaderboard_rounded),
+              color: AppColors.textMuted,
+              tooltip: 'Leaderboard',
+            ),
             IconButton(
               onPressed: onResetTap,
               icon: const Icon(Icons.refresh_outlined),

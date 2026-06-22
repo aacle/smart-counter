@@ -313,12 +313,19 @@ class SyncService {
 
     await cloud.upsertFullProfile(
       displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
       totalCounts: totalCounts,
       totalMalas: totalMalas,
       totalSessions: totalSessions,
       currentStreak: currentStreak,
       bestStreak: bestStreak,
+      todayCounts: dailyStats[_todayKey()]?.counts ?? 0,
     );
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 }
 

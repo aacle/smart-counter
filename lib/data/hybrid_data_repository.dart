@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../core/constants/appwrite_constants.dart';
 import '../core/utils/app_logger.dart';
 import '../features/counter/domain/counter_state.dart';
 import '../features/insights/domain/daily_stats.dart';
@@ -149,7 +148,6 @@ class HybridDataRepository implements DataRepository {
           // Also update the aggregated lifetime stats in the user profile so the 
           // cloud stays instantly in sync with the device's all-time counts.
           final lifetimeStats = await loadLifetimeStats();
-          final displayName = AppwriteConstants.userProfilesCollection; // Temporary placeholder, SyncService does full sync
           
           // We need to re-aggregate the total counts just like SyncService does
           final allDailyStats = await _local.loadDailyStats();
@@ -173,6 +171,7 @@ class HybridDataRepository implements DataRepository {
             totalSessions: totalSessions,
             currentStreak: currentStreak,
             bestStreak: bestStreak,
+            todayCounts: allDailyStats[todayKey]?.counts ?? 0,
           );
         }
       }, 'saveInsightsData(today)');

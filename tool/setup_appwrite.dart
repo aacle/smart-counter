@@ -161,11 +161,13 @@ Future<void> _createUserProfilesCollection(Databases db) async {
 
   await _ensureStringAttr(db, _userProfilesId, 'user_id', 36, required: true);
   await _ensureStringAttr(db, _userProfilesId, 'display_name', 100, required: true);
+  await _ensureStringAttr(db, _userProfilesId, 'avatar_url', 500, required: false);
   await _ensureIntAttr(db, _userProfilesId, 'total_counts', required: true);
   await _ensureIntAttr(db, _userProfilesId, 'total_malas', required: true);
   await _ensureIntAttr(db, _userProfilesId, 'total_sessions', required: true);
   await _ensureIntAttr(db, _userProfilesId, 'current_streak', required: true);
   await _ensureIntAttr(db, _userProfilesId, 'best_streak', required: true);
+  await _ensureIntAttr(db, _userProfilesId, 'today_counts', required: true);
   await _ensureStringAttr(db, _userProfilesId, 'last_sync_at', 30, required: true);
 
   await _waitForAttributes(db, _userProfilesId);
@@ -177,13 +179,29 @@ Future<void> _createUserProfilesCollection(Databases db) async {
     type: IndexType.unique,
     attributes: ['user_id'],
   );
-  // Index for leaderboard queries (Phase 7)
+  // Indexes for leaderboard queries
   await _ensureIndex(
     db,
     _userProfilesId,
     key: 'total_counts_desc',
     type: IndexType.key,
     attributes: ['total_counts'],
+    orders: ['DESC'],
+  );
+  await _ensureIndex(
+    db,
+    _userProfilesId,
+    key: 'today_counts_desc',
+    type: IndexType.key,
+    attributes: ['today_counts'],
+    orders: ['DESC'],
+  );
+  await _ensureIndex(
+    db,
+    _userProfilesId,
+    key: 'current_streak_desc',
+    type: IndexType.key,
+    attributes: ['current_streak'],
     orders: ['DESC'],
   );
 }

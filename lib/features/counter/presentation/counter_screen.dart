@@ -22,6 +22,7 @@ import '../../common/rate_us_dialog.dart';
 import '../../../services/report_service.dart';
 import '../../../services/feedback_service.dart';
 import '../../onboarding/presentation/onboarding_screen.dart';
+import '../../leaderboard/presentation/leaderboard_screen.dart';
 import 'widgets/mala_beads.dart';
 import 'widgets/counter_display.dart';
 import 'widgets/session_stats.dart';
@@ -544,6 +545,10 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
                 MaterialPageRoute(builder: (context) => const InsightsScreen()),
               ),
               onResetTap: _onResetTap,
+              onLeaderboardTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LeaderboardScreen()),
+              ),
             ),
           ],
         ),
