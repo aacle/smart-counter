@@ -32,10 +32,10 @@ class ReminderSetupScreen extends ConsumerStatefulWidget {
 }
 
 class _ReminderSetupScreenState extends ConsumerState<ReminderSetupScreen> {
-  final ReminderService _reminderService = ReminderService();
+  final ReminderService _reminderService = ReminderService.instance;
   
-  // Interval options in minutes
-  static const List<int> _intervalOptions = [1, 5, 10, 15, 30, 60];
+  // Interval options in minutes (minimum 15 to avoid notification spam)
+  static const List<int> _intervalOptions = [15, 30, 60, 120];
 
   @override
   void initState() {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../core/utils/app_logger.dart';
 
 /// Service to capture a widget as an image and share it
 class ShareProgressService {
@@ -37,8 +38,8 @@ class ShareProgressService {
           text: text,
         ),
       );
-    } catch (e) {
-      debugPrint('Error sharing: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('ShareProgressService', 'Failed to share widget as image', e, stackTrace);
     }
   }
 
@@ -46,8 +47,8 @@ class ShareProgressService {
   Future<void> shareText(String text, {String? subject}) async {
     try {
       await SharePlus.instance.share(ShareParams(text: text, title: subject));
-    } catch (e) {
-      debugPrint('Error sharing text: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('ShareProgressService', 'Failed to share text', e, stackTrace);
     }
   }
 }

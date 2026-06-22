@@ -1,73 +1,63 @@
-import 'package:vibration/vibration.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'haptic_service.dart';
+import '../core/utils/app_logger.dart';
 
-/// Service for playing tick sounds/feedback during auto-count
+/// Service for playing sounds and coordinating audio + haptic feedback
+/// All vibration is delegated to HapticService
 class SoundService {
-  static SoundService? _instance;
+  static final SoundService instance = SoundService._();
   
-  bool _hasVibrator = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final HapticService _hapticService = HapticService.instance;
 
   SoundService._();
 
-  static SoundService get instance {
-    _instance ??= SoundService._();
-    return _instance!;
-  }
-
   Future<void> initialize() async {
     try {
-      _hasVibrator = await Vibration.hasVibrator() == true;
+      // Configure audio player for low latency and set release mode
+      await _audioPlayer.setReleaseMode(ReleaseMode.stop);
       // Preload the tap sound to reduce latency
       await _audioPlayer.setSource(AssetSource('sounds/tap.mp3'));
-    } catch (e) {
-      _hasVibrator = false;
+    } catch (e, stackTrace) {
+      AppLogger.error('SoundService', 'Failed to preload tap sound', e, stackTrace);
     }
   }
 
   /// Play tap sound
   Future<void> playTapSound() async {
     try {
-      // Stop previous playback to allow rapid tapping
-      await _audioPlayer.stop();
-      await _audioPlayer.play(AssetSource('sounds/tap.mp3'), mode: PlayerMode.lowLatency);
-    } catch (e) {
-      // Fallback to system sound if audio fails
+      if (_audioPlayer.state == PlayerState.playing) {
+        await _audioPlayer.stop();
+      }
+      
+      // Use low latency mode and don't await the completion to prevent blocking/timeouts
+      // on fast successive taps
+      _audioPlayer.play(
+        AssetSource('sounds/tap.mp3'), 
+        mode: PlayerMode.lowLatency,
+      ).catchError((e) {
+        SystemSound.play(SystemSoundType.click);
+      });
+    } catch (e, stackTrace) {
+      AppLogger.error('SoundService', 'Failed to play tap sound, falling back to system click', e, stackTrace);
       SystemSound.play(SystemSoundType.click);
     }
   }
 
   /// Play a short tick feedback for auto-count
-  /// Uses vibration + system haptic for noticeable feedback
+  /// Delegates vibration to HapticService
   Future<void> playTick() async {
-    try {
-      // Strong vibration that user can feel and hear
-      if (_hasVibrator) {
-        await Vibration.vibrate(duration: 30, amplitude: 200);
-      }
-      // Also trigger haptic feedback
-      await HapticFeedback.mediumImpact();
-    } catch (e) {
-      // Fallback to light impact
-      await HapticFeedback.lightImpact();
-    }
+    await _hapticService.autoCountTick();
   }
 
-  /// Play a completion feedback for mala
+  /// Play completion feedback for mala
+  /// Note: Haptic vibration for mala completion is handled directly by HapticService.onCount()
+  /// to ensure perfect timing with the 108th tap. This function is currently unused but
+  /// kept for future sound integration.
   Future<void> playComplete() async {
-    try {
-      if (_hasVibrator) {
-        // Celebration pattern
-        await Vibration.vibrate(
-          pattern: [0, 100, 50, 100, 50, 200],
-          intensities: [0, 255, 0, 255, 0, 255],
-        );
-      }
-      await HapticFeedback.heavyImpact();
-    } catch (e) {
-      await HapticFeedback.heavyImpact();
-    }
+    // We explicitly do NOT call _hapticService.celebrationFeedback() here anymore
+    // to prevent double/early vibrations.
   }
 
   void dispose() {

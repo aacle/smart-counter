@@ -1,12 +1,23 @@
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/utils/app_logger.dart';
+import '../../../data/data_provider.dart';
+import '../../../data/data_repository.dart';
+import '../../../data/sync_service.dart';
 import '../../../services/home_widget_service.dart';
 import '../domain/daily_stats.dart';
 
 /// Provider for insights/statistics
 final insightsProvider = StateNotifierProvider<InsightsNotifier, InsightsState>((ref) {
-  return InsightsNotifier();
+  final notifier = InsightsNotifier(ref.watch(dataRepositoryProvider));
+  
+  // Listen to sync completions to instantly update UI from cloud data
+  ref.listen(syncStatusProvider, (previous, next) {
+    if (next is AsyncData && next.value?.status == SyncStatus.success) {
+      notifier.reloadFromRepository();
+    }
+  });
+
+  return notifier;
 });
 
 /// State containing all insights data
@@ -133,49 +144,41 @@ class InsightsState {
 
 /// Notifier for managing insights state
 class InsightsNotifier extends StateNotifier<InsightsState> {
-  InsightsNotifier() : super(InsightsState.initial()) {
+  InsightsNotifier(this._repo) : super(InsightsState.initial()) {
     _loadData();
   }
 
-  static const String _dailyStatsKey = 'daily_stats';
-  static const String _currentStreakKey = 'current_streak';
-  static const String _bestStreakKey = 'best_streak';
-  static const String _lastActiveDateKey = 'last_active_date';
+  final DataRepository _repo;
 
   Future<void> _loadData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      
       // Load daily stats
-      final statsJson = prefs.getString(_dailyStatsKey);
-      final Map<String, DailyStats> dailyStats = {};
-      
-      if (statsJson != null) {
-        final decoded = jsonDecode(statsJson) as Map<String, dynamic>;
-        for (final entry in decoded.entries) {
-          dailyStats[entry.key] = DailyStats.fromJson(entry.value as Map<String, dynamic>);
-        }
-      }
+      final dailyStats = await _repo.loadDailyStats();
       
       // Load streak data
-      final currentStreak = prefs.getInt(_currentStreakKey) ?? 0;
-      final bestStreak = prefs.getInt(_bestStreakKey) ?? 0;
-      final lastActiveDateStr = prefs.getString(_lastActiveDateKey);
-      final lastActiveDate = lastActiveDateStr != null 
-          ? DateTime.tryParse(lastActiveDateStr) 
-          : null;
+      final currentStreak = await _repo.loadCurrentStreak();
+      final bestStreak = await _repo.loadBestStreak();
+      final lastActiveDate = await _repo.loadLastActiveDate();
       
       // Check and update streak
-      await _checkAndUpdateStreak(dailyStats, currentStreak, lastActiveDate);
+      await _checkAndUpdateStreak(dailyStats, currentStreak, bestStreak, lastActiveDate);
       
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('InsightsNotifier', 'Failed to load insights data', e, stackTrace);
       state = state.copyWith(isLoading: false);
     }
+  }
+
+  /// Reloads data directly from the repository. Called when SyncService finishes downloading.
+  Future<void> reloadFromRepository() async {
+    AppLogger.info('InsightsNotifier', 'Reloading data from repository after sync');
+    await _loadData();
   }
 
   Future<void> _checkAndUpdateStreak(
     Map<String, DailyStats> dailyStats,
     int currentStreak,
+    int bestStreak,
     DateTime? lastActiveDate,
   ) async {
     final now = DateTime.now();
@@ -196,13 +199,12 @@ class InsightsNotifier extends StateNotifier<InsightsState> {
       }
     }
     
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_currentStreakKey, newStreak);
+    await _repo.saveCurrentStreak(newStreak);
     
     state = InsightsState(
       dailyStats: dailyStats,
       currentStreak: newStreak,
-      bestStreak: prefs.getInt(_bestStreakKey) ?? 0,
+      bestStreak: bestStreak,
       lastActiveDate: lastActiveDate,
       isLoading: false,
     );
@@ -210,28 +212,22 @@ class InsightsNotifier extends StateNotifier<InsightsState> {
 
   Future<void> _saveData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      // Save daily stats
-      final statsMap = <String, dynamic>{};
-      for (final entry in state.dailyStats.entries) {
-        statsMap[entry.key] = entry.value.toJson();
-      }
-      await prefs.setString(_dailyStatsKey, jsonEncode(statsMap));
-      
-      // Save streak data
-      await prefs.setInt(_currentStreakKey, state.currentStreak);
-      await prefs.setInt(_bestStreakKey, state.bestStreak);
-      if (state.lastActiveDate != null) {
-        await prefs.setString(_lastActiveDateKey, state.lastActiveDate!.toIso8601String());
-      }
-    } catch (e) {
-      // Ignore save errors
+      await _repo.saveInsightsData(
+        dailyStats: state.dailyStats,
+        currentStreak: state.currentStreak,
+        bestStreak: state.bestStreak,
+        lastActiveDate: state.lastActiveDate,
+      );
+    } catch (e, stackTrace) {
+      AppLogger.error('InsightsNotifier', 'Failed to save insights data', e, stackTrace);
     }
   }
 
-  /// Record a count increment
-  Future<void> recordCount() async {
+  /// Record a count increment.
+  ///
+  /// [dailyGoal] is passed from the caller (who has access to settings)
+  /// to avoid cross-domain data reads.
+  Future<void> recordCount({int dailyGoal = 0}) async {
     final todayKey = InsightsState.todayKey;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -287,12 +283,15 @@ class InsightsNotifier extends StateNotifier<InsightsState> {
       lastActiveDate: newLastActive,
     );
     
-    // Save on every count to prevent data loss
-    await _saveData();
+    // Batch save: persist every 10 counts to reduce I/O overhead
+    // Data is also saved on app background via saveNow()
+    if (updatedStats.counts % 10 == 0 || currentStats.counts == 0) {
+      await _saveData();
+    }
     
     // Update home widget periodically (every 5 counts)
     if (updatedStats.counts % 5 == 0) {
-      await updateHomeWidget();
+      await updateHomeWidget(dailyGoal: dailyGoal);
     }
   }
 
@@ -332,44 +331,29 @@ class InsightsNotifier extends StateNotifier<InsightsState> {
   }
 
   /// Force save current data
-  Future<void> saveNow() async {
+  Future<void> saveNow({int dailyGoal = 0}) async {
     await _saveData();
-    await updateHomeWidget();
+    await updateHomeWidget(dailyGoal: dailyGoal);
   }
 
-  /// Update home screen widget with current stats
+  /// Update home screen widget with current stats.
+  ///
+  /// The [dailyGoal] parameter should be provided by the caller
+  /// (typically from SettingsState) to avoid cross-domain data reads.
   Future<void> updateHomeWidget({int? dailyGoal}) async {
     final todayStats = state.todayStats;
-    
-    // Get daily goal from SharedPreferences if not provided
-    int goal = dailyGoal ?? 0;
-    if (goal == 0) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final settingsJson = prefs.getString('settings_state');
-        if (settingsJson != null) {
-          final settings = jsonDecode(settingsJson) as Map<String, dynamic>;
-          goal = settings['dailyGoal'] as int? ?? 0;
-        }
-      } catch (_) {}
-    }
     
     await HomeWidgetService.updateWidget(
       todayCount: todayStats.counts,
       todayMalas: todayStats.malas,
       currentStreak: state.currentStreak,
-      dailyGoal: goal,
+      dailyGoal: dailyGoal ?? 0,
     );
   }
 
   /// Clear all data (for reset)
   Future<void> clearAllData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_dailyStatsKey);
-    await prefs.remove(_currentStreakKey);
-    await prefs.remove(_bestStreakKey);
-    await prefs.remove(_lastActiveDateKey);
-    
+    await _repo.clearInsightsData();
     state = InsightsState.initial().copyWith(isLoading: false);
   }
 }

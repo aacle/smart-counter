@@ -97,8 +97,8 @@ class RateUsDialog extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.of(context).pop();
-                        FeedbackService().openStoreForRating();
-                        FeedbackService().markAsRated();
+                        FeedbackService.instance.openStoreForRating();
+                        FeedbackService.instance.markAsRated();
                       },
                       icon: const Icon(Icons.star_rounded, size: 20),
                       label: const Text('Rate Us on Play Store'),
@@ -124,7 +124,7 @@ class RateUsDialog extends StatelessWidget {
                         child: TextButton(
                           onPressed: () {
                             Navigator.of(context).pop();
-                            FeedbackService().postponeRating();
+                            FeedbackService.instance.postponeRating();
                           },
                           style: TextButton.styleFrom(
                             foregroundColor: AppColors.textMuted,
@@ -145,7 +145,7 @@ class RateUsDialog extends StatelessWidget {
                         child: TextButton(
                           onPressed: () {
                             Navigator.of(context).pop();
-                            FeedbackService().neverAskAgain();
+                            FeedbackService.instance.neverAskAgain();
                           },
                           style: TextButton.styleFrom(
                             foregroundColor: AppColors.textMuted.withValues(alpha: 0.6),

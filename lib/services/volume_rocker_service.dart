@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:volume_controller/volume_controller.dart';
+import '../core/utils/app_logger.dart';
 
 /// Service to detect volume button presses for counting
 /// Allows users to count with phone in pocket
 class VolumeRockerService {
-  static VolumeRockerService? _instance;
+  static final VolumeRockerService instance = VolumeRockerService._();
   
   VolumeController? _controller;
   StreamController<void>? _countStreamController;
@@ -17,11 +18,6 @@ class VolumeRockerService {
   static const _debounceMs = 150;
 
   VolumeRockerService._();
-
-  static VolumeRockerService get instance {
-    _instance ??= VolumeRockerService._();
-    return _instance!;
-  }
 
   /// Stream that emits when a volume button is pressed
   Stream<void> get countStream {
@@ -52,7 +48,8 @@ class VolumeRockerService {
         _baseVolume = 0.5;
         _controller!.setVolume(_baseVolume, showSystemUI: false);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('VolumeRockerService', 'Failed to get initial volume', e, stackTrace);
       _baseVolume = 0.5;
     }
     
@@ -112,7 +109,8 @@ class VolumeRockerService {
       final controller = VolumeController();
       await controller.getVolume();
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('VolumeRockerService', 'Failed to check availability', e, stackTrace);
       return false;
     }
   }

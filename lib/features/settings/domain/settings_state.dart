@@ -1,5 +1,7 @@
-import 'package:flutter/foundation.dart';
 import '../../../core/theme/colors.dart';
+
+// Re-export AppThemeColor so consumers of settings_state get it automatically
+export '../../../core/theme/colors.dart' show AppThemeColor;
 
 /// Type of daily goal - either malas or individual chant counts
 enum GoalType {
@@ -14,7 +16,6 @@ enum InterfaceMode {
 }
 
 /// Immutable state for app settings
-@immutable
 class SettingsState {
   final bool hapticEnabled;
   final bool volumeRockerEnabled;
@@ -31,15 +32,6 @@ class SettingsState {
   final bool reminderEnabled;
   final int reminderIntervalMinutes;
   
-  // Active hours for reminders (list of enabled time slot indices)
-  // 0: 6am-9am, 1: 9am-12pm, 2: 12pm-3pm, 3: 3pm-6pm, 
-  // 4: 6pm-9pm, 5: 9pm-12am, 6: 12am-4am
-  final List<int> activeTimeSlots;
-  
-  // Custom active hours (start hour, end hour) - null if using presets
-  final int? customStartHour;
-  final int? customEndHour;
-  
   // Auto count settings
   final bool autoCountEnabled;
   final double autoCountSpeed;
@@ -48,7 +40,6 @@ class SettingsState {
   final bool weeklyReportEnabled;
   final bool monthlyReportEnabled;
   final bool goalMissNotificationEnabled;
-  final bool goalAchievementCelebrationEnabled;
   
   // Customization
   final String customTitle;  // Custom title for counter screen
@@ -66,15 +57,11 @@ class SettingsState {
     required this.interfaceMode,
     required this.reminderEnabled,
     required this.reminderIntervalMinutes,
-    required this.activeTimeSlots,
-    this.customStartHour,
-    this.customEndHour,
     required this.autoCountEnabled,
     required this.autoCountSpeed,
     required this.weeklyReportEnabled,
     required this.monthlyReportEnabled,
     required this.goalMissNotificationEnabled,
-    required this.goalAchievementCelebrationEnabled,
     required this.customTitle,
     required this.reminderSound,
     required this.tapSoundEnabled,
@@ -85,7 +72,7 @@ class SettingsState {
   factory SettingsState.defaults() {
     return const SettingsState(
       hapticEnabled: false,
-      volumeRockerEnabled: true,
+      volumeRockerEnabled: false,
       keepScreenAwake: false,
       dailyGoal: 0,
       dailyGoalCount: 0,
@@ -93,16 +80,12 @@ class SettingsState {
       interfaceMode: InterfaceMode.malaWise,
       reminderEnabled: false,
       reminderIntervalMinutes: 30,
-      activeTimeSlots: [0, 1, 2, 3, 4], // 6am to 9pm by default
-      customStartHour: null,
-      customEndHour: null,
       autoCountEnabled: false,
       autoCountSpeed: 2.0,
       weeklyReportEnabled: true,
       monthlyReportEnabled: true,
       goalMissNotificationEnabled: true,
-      goalAchievementCelebrationEnabled: true,
-      customTitle: 'सुमिरन',
+      customTitle: '\u0938\u0941\u092E\u093F\u0930\u0928',
       reminderSound: 'default',  // 'default' uses system sound
       tapSoundEnabled: true,
       selectedTheme: AppThemeColor.divineGold,
@@ -120,16 +103,11 @@ class SettingsState {
     InterfaceMode? interfaceMode,
     bool? reminderEnabled,
     int? reminderIntervalMinutes,
-    List<int>? activeTimeSlots,
-    int? customStartHour,
-    int? customEndHour,
-    bool clearCustomHours = false,
     bool? autoCountEnabled,
     double? autoCountSpeed,
     bool? weeklyReportEnabled,
     bool? monthlyReportEnabled,
     bool? goalMissNotificationEnabled,
-    bool? goalAchievementCelebrationEnabled,
     String? customTitle,
     String? reminderSound,
     bool? tapSoundEnabled,
@@ -147,15 +125,11 @@ class SettingsState {
       interfaceMode: interfaceMode ?? this.interfaceMode,
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       reminderIntervalMinutes: reminderIntervalMinutes ?? this.reminderIntervalMinutes,
-      activeTimeSlots: activeTimeSlots ?? this.activeTimeSlots,
-      customStartHour: clearCustomHours ? null : (customStartHour ?? this.customStartHour),
-      customEndHour: clearCustomHours ? null : (customEndHour ?? this.customEndHour),
       autoCountEnabled: autoCountEnabled ?? this.autoCountEnabled,
       autoCountSpeed: autoCountSpeed ?? this.autoCountSpeed,
       weeklyReportEnabled: weeklyReportEnabled ?? this.weeklyReportEnabled,
       monthlyReportEnabled: monthlyReportEnabled ?? this.monthlyReportEnabled,
       goalMissNotificationEnabled: goalMissNotificationEnabled ?? this.goalMissNotificationEnabled,
-      goalAchievementCelebrationEnabled: goalAchievementCelebrationEnabled ?? this.goalAchievementCelebrationEnabled,
       customTitle: customTitle ?? this.customTitle,
       reminderSound: reminderSound ?? this.reminderSound,
       tapSoundEnabled: tapSoundEnabled ?? this.tapSoundEnabled,
@@ -175,15 +149,11 @@ class SettingsState {
       'interfaceMode': interfaceMode.name,
       'reminderEnabled': reminderEnabled,
       'reminderIntervalMinutes': reminderIntervalMinutes,
-      'activeTimeSlots': activeTimeSlots,
-      'customStartHour': customStartHour,
-      'customEndHour': customEndHour,
       'autoCountEnabled': autoCountEnabled,
       'autoCountSpeed': autoCountSpeed,
       'weeklyReportEnabled': weeklyReportEnabled,
       'monthlyReportEnabled': monthlyReportEnabled,
       'goalMissNotificationEnabled': goalMissNotificationEnabled,
-      'goalAchievementCelebrationEnabled': goalAchievementCelebrationEnabled,
       'customTitle': customTitle,
       'reminderSound': reminderSound,
       'tapSoundEnabled': tapSoundEnabled,
@@ -195,7 +165,7 @@ class SettingsState {
   factory SettingsState.fromJson(Map<String, dynamic> json) {
     return SettingsState(
       hapticEnabled: json['hapticEnabled'] as bool? ?? true,
-      volumeRockerEnabled: json['volumeRockerEnabled'] as bool? ?? true,
+      volumeRockerEnabled: json['volumeRockerEnabled'] as bool? ?? false,
       keepScreenAwake: json['keepScreenAwake'] as bool? ?? false,
       dailyGoal: json['dailyGoal'] as int? ?? 0,
       dailyGoalCount: json['dailyGoalCount'] as int? ?? 0,
@@ -208,18 +178,13 @@ class SettingsState {
         orElse: () => InterfaceMode.malaWise,
       ),
       reminderEnabled: json['reminderEnabled'] as bool? ?? false,
-      reminderIntervalMinutes: json['reminderIntervalMinutes'] as int? ?? 30,
-      activeTimeSlots: (json['activeTimeSlots'] as List<dynamic>?)
-          ?.map((e) => e as int).toList() ?? [0, 1, 2, 3, 4],
-      customStartHour: json['customStartHour'] as int?,
-      customEndHour: json['customEndHour'] as int?,
+      reminderIntervalMinutes: ((json['reminderIntervalMinutes'] as int?) ?? 30).clamp(15, 120),
       autoCountEnabled: json['autoCountEnabled'] as bool? ?? false,
       autoCountSpeed: (json['autoCountSpeed'] as num?)?.toDouble() ?? 2.0,
       weeklyReportEnabled: json['weeklyReportEnabled'] as bool? ?? true,
       monthlyReportEnabled: json['monthlyReportEnabled'] as bool? ?? true,
       goalMissNotificationEnabled: json['goalMissNotificationEnabled'] as bool? ?? true,
-      goalAchievementCelebrationEnabled: json['goalAchievementCelebrationEnabled'] as bool? ?? true,
-      customTitle: json['customTitle'] as String? ?? 'सुमिरन',
+      customTitle: json['customTitle'] as String? ?? '\u0938\u0941\u092E\u093F\u0930\u0928',
       reminderSound: json['reminderSound'] as String? ?? 'default',
       tapSoundEnabled: json['tapSoundEnabled'] as bool? ?? false,
       selectedTheme: AppThemeColor.values.firstWhere(
@@ -243,15 +208,11 @@ class SettingsState {
         other.interfaceMode == interfaceMode &&
         other.reminderEnabled == reminderEnabled &&
         other.reminderIntervalMinutes == reminderIntervalMinutes &&
-        listEquals(other.activeTimeSlots, activeTimeSlots) &&
-        other.customStartHour == customStartHour &&
-        other.customEndHour == customEndHour &&
         other.autoCountEnabled == autoCountEnabled &&
         other.autoCountSpeed == autoCountSpeed &&
         other.weeklyReportEnabled == weeklyReportEnabled &&
         other.monthlyReportEnabled == monthlyReportEnabled &&
         other.goalMissNotificationEnabled == goalMissNotificationEnabled &&
-        other.goalAchievementCelebrationEnabled == goalAchievementCelebrationEnabled &&
         other.customTitle == customTitle &&
         other.reminderSound == reminderSound &&
         other.tapSoundEnabled == tapSoundEnabled &&
@@ -271,22 +232,16 @@ class SettingsState {
       interfaceMode,
       reminderEnabled,
       reminderIntervalMinutes,
-      Object.hashAll(activeTimeSlots),
-      customStartHour,
-      customEndHour,
       autoCountEnabled,
       autoCountSpeed,
       weeklyReportEnabled,
       monthlyReportEnabled,
       goalMissNotificationEnabled,
-      goalAchievementCelebrationEnabled,
-      Object.hash(
-        customTitle,
-        reminderSound,
-        tapSoundEnabled,
-        selectedTheme,
-        centerImagePath,
-      ),
+      customTitle,
+      reminderSound,
+      tapSoundEnabled,
+      selectedTheme,
+      centerImagePath,
     );
   }
 }

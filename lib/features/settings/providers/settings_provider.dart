@@ -1,35 +1,33 @@
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/theme/colors.dart';
+import '../../../core/utils/app_logger.dart';
+import '../../../data/data_provider.dart';
+import '../../../data/data_repository.dart';
 import '../domain/settings_state.dart';
 
 /// Provider for the settings state
 final settingsProvider =
     StateNotifierProvider<SettingsNotifier, SettingsState>((ref) {
-  return SettingsNotifier();
+  return SettingsNotifier(ref.watch(dataRepositoryProvider));
 });
 
 /// Settings state notifier with persistence
 class SettingsNotifier extends StateNotifier<SettingsState> {
-  SettingsNotifier() : super(SettingsState.defaults()) {
+  SettingsNotifier(this._repo) : super(SettingsState.defaults()) {
     _loadSettings();
   }
 
-  static const String _storageKey = 'app_settings';
+  final DataRepository _repo;
 
   /// Load saved settings from storage
   Future<void> _loadSettings() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final settingsJson = prefs.getString(_storageKey);
-      if (settingsJson != null) {
-        final json = jsonDecode(settingsJson) as Map<String, dynamic>;
-        state = SettingsState.fromJson(json);
-        // Apply the loaded theme
-        AppColors.setTheme(state.selectedTheme);
+      final loaded = await _repo.loadSettings();
+      if (loaded != null) {
+        state = loaded;
+        // Theme is applied reactively by app.dart watching settingsProvider
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('SettingsNotifier', 'Failed to load settings', e, stackTrace);
       state = SettingsState.defaults();
     }
   }
@@ -37,9 +35,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   /// Save current settings to storage
   Future<void> _saveSettings() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_storageKey, jsonEncode(state.toJson()));
-    } catch (e) {}
+      await _repo.saveSettings(state);
+    } catch (e, stackTrace) {
+      AppLogger.error('SettingsNotifier', 'Failed to save settings', e, stackTrace);
+    }
   }
 
   Future<void> setHapticEnabled(bool enabled) async {
@@ -87,35 +86,6 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await _saveSettings();
   }
 
-  /// Toggle a time slot on/off
-  Future<void> toggleTimeSlot(int slotIndex) async {
-    final currentSlots = List<int>.from(state.activeTimeSlots);
-    if (currentSlots.contains(slotIndex)) {
-      currentSlots.remove(slotIndex);
-    } else {
-      currentSlots.add(slotIndex);
-      currentSlots.sort();
-    }
-    state = state.copyWith(activeTimeSlots: currentSlots);
-    await _saveSettings();
-  }
-
-  /// Set all active time slots at once
-  Future<void> setActiveTimeSlots(List<int> slots) async {
-    state = state.copyWith(activeTimeSlots: slots);
-    await _saveSettings();
-  }
-
-  /// Set custom hours
-  Future<void> setCustomHours(int? startHour, int? endHour) async {
-    if (startHour == null || endHour == null) {
-      state = state.copyWith(clearCustomHours: true);
-    } else {
-      state = state.copyWith(customStartHour: startHour, customEndHour: endHour);
-    }
-    await _saveSettings();
-  }
-
   Future<void> setAutoCountEnabled(bool enabled) async {
     state = state.copyWith(autoCountEnabled: enabled);
     await _saveSettings();
@@ -141,11 +111,6 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await _saveSettings();
   }
 
-  Future<void> setGoalAchievementCelebrationEnabled(bool enabled) async {
-    state = state.copyWith(goalAchievementCelebrationEnabled: enabled);
-    await _saveSettings();
-  }
-
   Future<void> setCustomTitle(String title) async {
     state = state.copyWith(customTitle: title);
     await _saveSettings();
@@ -162,7 +127,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 
   Future<void> setTheme(AppThemeColor theme) async {
-    AppColors.setTheme(theme);
+    // Theme is applied reactively by app.dart watching settingsProvider
     state = state.copyWith(selectedTheme: theme);
     await _saveSettings();
   }
@@ -177,4 +142,3 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await _saveSettings();
   }
 }
-

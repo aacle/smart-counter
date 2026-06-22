@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/theme/colors.dart';
 import '../../../services/feedback_service.dart';
+import '../../auth/presentation/widgets/account_section.dart';
 import '../domain/settings_state.dart';
 import '../providers/settings_provider.dart';
 import 'reminder_setup_screen.dart';
@@ -56,6 +57,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
           const SizedBox(height: 8),
+
+          // === ACCOUNT ===
+          const AccountSection(),
+
+          const SizedBox(height: 12),
 
           // === PRACTICE SETTINGS ===
           _buildSettingsGroup(
@@ -255,7 +261,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
             child: InkWell(
-              onTap: () => FeedbackService().openStoreForRating(),
+              onTap: () => FeedbackService.instance.openStoreForRating(),
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

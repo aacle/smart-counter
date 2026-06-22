@@ -1,12 +1,12 @@
 import 'package:in_app_review/in_app_review.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/utils/app_logger.dart';
+import '../data/storage_keys.dart';
 
 /// Service to manage rate-us prompts with smart frequency
 class FeedbackService {
-  static const String _keyFirstLaunch = 'feedback_first_launch';
-  static const String _keyLastPrompt = 'feedback_last_prompt';
-  static const String _keyNeverAsk = 'feedback_never_ask';
-  static const String _keyHasRated = 'feedback_has_rated';
+  static final FeedbackService instance = FeedbackService._();
+  FeedbackService._();
 
   static const int _daysBeforeFirstPrompt = 3;
   static const int _daysBetweenPrompts = 7;
@@ -17,8 +17,8 @@ class FeedbackService {
   /// Initialize first launch date if not set
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
-    if (!prefs.containsKey(_keyFirstLaunch)) {
-      await prefs.setString(_keyFirstLaunch, DateTime.now().toIso8601String());
+    if (!prefs.containsKey(StorageKeys.feedbackFirstLaunch)) {
+      await prefs.setString(StorageKeys.feedbackFirstLaunch, DateTime.now().toIso8601String());
     }
   }
 
@@ -30,12 +30,12 @@ class FeedbackService {
     final prefs = await SharedPreferences.getInstance();
 
     // Never show if user said "Don't ask again" or already rated
-    if (prefs.getBool(_keyNeverAsk) == true || prefs.getBool(_keyHasRated) == true) {
+    if (prefs.getBool(StorageKeys.feedbackNeverAsk) == true || prefs.getBool(StorageKeys.feedbackHasRated) == true) {
       return false;
     }
 
     // Check minimum usage: at least X days since first launch and Y malas
-    final firstLaunchStr = prefs.getString(_keyFirstLaunch);
+    final firstLaunchStr = prefs.getString(StorageKeys.feedbackFirstLaunch);
     if (firstLaunchStr == null) return false;
 
     final firstLaunch = DateTime.parse(firstLaunchStr);
@@ -46,7 +46,7 @@ class FeedbackService {
     }
 
     // Check cooldown since last prompt
-    final lastPromptStr = prefs.getString(_keyLastPrompt);
+    final lastPromptStr = prefs.getString(StorageKeys.feedbackLastPrompt);
     if (lastPromptStr != null) {
       final lastPrompt = DateTime.parse(lastPromptStr);
       final daysSinceLastPrompt = DateTime.now().difference(lastPrompt).inDays;
@@ -56,7 +56,7 @@ class FeedbackService {
     }
 
     // Record this prompt time
-    await prefs.setString(_keyLastPrompt, DateTime.now().toIso8601String());
+    await prefs.setString(StorageKeys.feedbackLastPrompt, DateTime.now().toIso8601String());
     return true;
   }
 
@@ -69,13 +69,13 @@ class FeedbackService {
   /// User tapped "Don't Ask Again"
   Future<void> neverAskAgain() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyNeverAsk, true);
+    await prefs.setBool(StorageKeys.feedbackNeverAsk, true);
   }
 
   /// User tapped "Rate Us" — mark as rated so we never ask again
   Future<void> markAsRated() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyHasRated, true);
+    await prefs.setBool(StorageKeys.feedbackHasRated, true);
   }
 
   /// Open Play Store listing directly
@@ -84,8 +84,8 @@ class FeedbackService {
       await _inAppReview.openStoreListing(
         appStoreId: 'com.smartnaamjap.smrt_counter',
       );
-    } catch (_) {
-      // Silent fail
+    } catch (e, stackTrace) {
+      AppLogger.error('FeedbackService', 'Failed to open store listing', e, stackTrace);
     }
   }
 }

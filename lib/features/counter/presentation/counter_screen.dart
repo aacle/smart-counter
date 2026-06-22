@@ -36,10 +36,10 @@ class CounterScreen extends ConsumerStatefulWidget {
 class _CounterScreenState extends ConsumerState<CounterScreen>
     with WidgetsBindingObserver {
   final VolumeRockerService _volumeService = VolumeRockerService.instance;
-  final ReminderService _reminderService = ReminderService();
+  final ReminderService _reminderService = ReminderService.instance;
   final HapticService _hapticService = HapticService.instance;
   final SoundService _soundService = SoundService.instance;
-  final FeedbackService _feedbackService = FeedbackService();
+  final FeedbackService _feedbackService = FeedbackService.instance;
   
   StreamSubscription<void>? _volumeSubscription;
   
@@ -242,30 +242,32 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     final currentState = ref.read(counterProvider);
     final currentMalas = currentState.count ~/ kMalaSize;
     
+    // Increment state first
     ref.read(counterProvider.notifier).increment();
     
     // Record count for daily insights
     ref.read(insightsProvider.notifier).recordCount();
     
+    // Synchronously predict new count to ensure instantaneous feedback.
+    // The previous state was reading the provider asynchronously which caused timing mismatches.
+    final newCount = currentState.count + 1;
+    final newMalas = newCount ~/ kMalaSize;
+    
     // Flush jap time to insights periodically (every 5 counts)
-    final newCount = ref.read(counterProvider).count;
     if (newCount % 5 == 0) {
       _flushJapTimeToInsights();
     }
     
-    // Trigger haptic feedback if enabled
-    if (settings.hapticEnabled) {
-      _hapticService.onCount(currentState.count + 1);
-    }
+    // Trigger haptic feedback IMMEDIATELY (no frame delay).
+    // We ALWAYS want the 108th (mala complete) tap to vibrate even if standard haptics are off.
+    _hapticService.onCount(newCount, hapticEnabled: settings.hapticEnabled);
     
     // Play tap sound if enabled
     if (settings.tapSoundEnabled) {
       _soundService.playTapSound();
     }
     
-    final newState = ref.read(counterProvider);
-    final newMalas = newState.count ~/ kMalaSize;
-    
+    // Trigger the visual UI celebration animation
     if (newMalas > currentMalas) {
       _showMalaCelebration();
     }
@@ -390,7 +392,11 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
 
   void _showMalaCelebration() {
     setState(() => _showCelebration = true);
-    _soundService.playComplete();
+    // Note: We intentionally do NOT call `_soundService.playComplete()` here anymore.
+    // The playComplete() function triggers `_hapticService.celebrationFeedback()`,
+    // which was causing a massive duplicate/out-of-sync vibration right as the 108th 
+    // count was tapped. The `_hapticService.onCount()` already handles the 
+    // exact perfectly-timed 108th vibration.
     
     Future.delayed(kMalaCompleteAnimationDuration, () {
       if (mounted) {
@@ -416,11 +422,11 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
           borderRadius: BorderRadius.circular(20),
         ),
         title: Text(
-          'Reset Session?',
+          'Reset Counter?',
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         content: Text(
-          'Your current count will be saved to your lifetime statistics before resetting.',
+          'This will reset your current session back to zero. Your daily total in the Insights tab will remain intact.',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         actions: [
@@ -433,8 +439,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
           ),
           ElevatedButton(
             onPressed: () {
-              // Flush jap time to insights before resetting
-              _flushJapTimeToInsights();
+              // Reset the counter internally
               ref.read(counterProvider.notifier).resetSession();
               Navigator.pop(context);
             },
@@ -455,6 +460,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   @override
   Widget build(BuildContext context) {
     final counterState = ref.watch(counterProvider);
+    final insightsState = ref.watch(insightsProvider);
     final settings = ref.watch(settingsProvider);
     
     // Watch settings changes and apply them
@@ -516,8 +522,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
                 onTap: _isAutoCountActive ? null : _onCount,
                 behavior: HitTestBehavior.opaque,
                 child: settings.interfaceMode == InterfaceMode.malaWise
-                    ? _buildMalaWiseContent(counterState, settings)
-                    : _buildCountWiseContent(counterState, settings),
+                    ? _buildMalaWiseContent(counterState, insightsState, settings)
+                    : _buildCountWiseContent(counterState, insightsState, settings),
               ),
             ),
 
@@ -529,7 +535,6 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
             // Session stats bar
             SessionStats(
               sessionDuration: _sessionDuration,
-              pocketModeActive: false,
               onInsightsTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const InsightsScreen()),
@@ -690,7 +695,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   }
 
   /// Mala-wise interface - shows 108 bead circle prominently
-  Widget _buildMalaWiseContent(counterState, settings) {
+  Widget _buildMalaWiseContent(counterState, insightsState, settings) {
     // Reduce size when banner is shown to prevent overflow
     final beadSize = _goalMissInfo != null
         ? MediaQuery.of(context).size.height * 0.28
@@ -701,7 +706,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
       children: [
         // Animated mala beads - responsive size
         MalaBeads(
-          currentCount: counterState.count,
+          currentCount: insightsState.todayStats.counts,
           showCelebration: _showCelebration,
           size: beadSize,
           centerImagePath: settings.centerImagePath,
@@ -711,8 +716,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
         
         // Main Counter Display
         CounterDisplay(
-          count: counterState.count,
-          malasCompleted: counterState.sessionMalas,
+          count: insightsState.todayStats.counts,
+          malasCompleted: insightsState.todayStats.malas,
           interfaceMode: InterfaceMode.malaWise,
         ),
         
@@ -724,7 +729,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   }
 
   /// Count-wise interface - shows total count prominently
-  Widget _buildCountWiseContent(counterState, settings) {
+  Widget _buildCountWiseContent(counterState, insightsState, settings) {
     // Reduce size when banner is shown to prevent overflow
     final beadSize = _goalMissInfo != null
         ? MediaQuery.of(context).size.height * 0.18
@@ -735,7 +740,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
       children: [
         // Smaller mala beads or just a progress indicator
         MalaBeads(
-          currentCount: counterState.count,
+          currentCount: insightsState.todayStats.counts,
           showCelebration: _showCelebration,
           size: beadSize,
           centerImagePath: settings.centerImagePath,
@@ -745,8 +750,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
         
         // Main Counter Display - count-wise style
         CounterDisplay(
-          count: counterState.count,
-          malasCompleted: counterState.sessionMalas,
+          count: insightsState.todayStats.counts,
+          malasCompleted: insightsState.todayStats.malas,
           interfaceMode: InterfaceMode.countWise,
         ),
         

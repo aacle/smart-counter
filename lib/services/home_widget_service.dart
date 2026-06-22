@@ -1,5 +1,5 @@
 import 'package:home_widget/home_widget.dart';
-import 'package:flutter/material.dart';
+import '../core/utils/app_logger.dart';
 
 /// Service to update home screen widget with app data
 class HomeWidgetService {
@@ -12,8 +12,8 @@ class HomeWidgetService {
     try {
       // Set app group ID for iOS
       await HomeWidget.setAppGroupId(appGroupId);
-    } catch (e) {
-      debugPrint('HomeWidget init error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('HomeWidgetService', 'Failed to initialize', e, stackTrace);
     }
   }
 
@@ -42,9 +42,9 @@ class HomeWidgetService {
         iOSName: iOSWidgetName,
       );
 
-      debugPrint('Home widget updated: $todayCount counts, $todayMalas malas');
-    } catch (e) {
-      debugPrint('HomeWidget update error: $e');
+      AppLogger.info('HomeWidgetService', 'Widget updated: $todayCount counts, $todayMalas malas');
+    } catch (e, stackTrace) {
+      AppLogger.error('HomeWidgetService', 'Failed to update widget', e, stackTrace);
     }
   }
 
@@ -54,8 +54,8 @@ class HomeWidgetService {
   ) async {
     try {
       HomeWidget.widgetClicked.listen(callback);
-    } catch (e) {
-      debugPrint('HomeWidget callback error: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error('HomeWidgetService', 'Failed to register callback', e, stackTrace);
     }
   }
 }

@@ -1,15 +1,11 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../data/storage_keys.dart';
 import '../features/insights/domain/daily_stats.dart';
 import '../features/settings/domain/settings_state.dart';
 
 /// Service to manage progress reports and goal notifications
 class ReportService {
-  static const String _lastWeeklyReportKey = 'last_weekly_report';
-  static const String _lastMonthlyReportKey = 'last_monthly_report';
-  static const String _lastGoalMissCheckKey = 'last_goal_miss_check';
-  
-  static ReportService? _instance;
-  static ReportService get instance => _instance ??= ReportService._();
+  static final ReportService instance = ReportService._();
   
   ReportService._();
 
@@ -22,7 +18,7 @@ class ReportService {
     if (now.weekday != DateTime.monday) return false;
     
     final prefs = await SharedPreferences.getInstance();
-    final lastShown = prefs.getString(_lastWeeklyReportKey);
+    final lastShown = prefs.getString(StorageKeys.lastWeeklyReport);
     
     if (lastShown == null) return true;
     
@@ -45,7 +41,7 @@ class ReportService {
     if (now.day != 1) return false;
     
     final prefs = await SharedPreferences.getInstance();
-    final lastShown = prefs.getString(_lastMonthlyReportKey);
+    final lastShown = prefs.getString(StorageKeys.lastMonthlyReport);
     
     if (lastShown == null) return true;
     
@@ -59,19 +55,19 @@ class ReportService {
   /// Mark weekly report as shown
   Future<void> markWeeklyReportShown() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastWeeklyReportKey, DateTime.now().toIso8601String());
+    await prefs.setString(StorageKeys.lastWeeklyReport, DateTime.now().toIso8601String());
   }
 
   /// Mark monthly report as shown
   Future<void> markMonthlyReportShown() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastMonthlyReportKey, DateTime.now().toIso8601String());
+    await prefs.setString(StorageKeys.lastMonthlyReport, DateTime.now().toIso8601String());
   }
 
   /// Check if yesterday's goal was missed and not yet notified
   Future<bool> shouldShowGoalMissNotification() async {
     final prefs = await SharedPreferences.getInstance();
-    final lastCheck = prefs.getString(_lastGoalMissCheckKey);
+    final lastCheck = prefs.getString(StorageKeys.lastGoalMissCheck);
     
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -91,7 +87,7 @@ class ReportService {
   /// Mark goal miss as checked for today
   Future<void> markGoalMissChecked() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastGoalMissCheckKey, DateTime.now().toIso8601String());
+    await prefs.setString(StorageKeys.lastGoalMissCheck, DateTime.now().toIso8601String());
   }
 
   /// Get yesterday's goal achievement info (shows progress even if 0)

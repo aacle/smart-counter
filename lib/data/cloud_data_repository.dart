@@ -1,0 +1,445 @@
+import 'dart:convert';
+import 'package:appwrite/appwrite.dart';
+import 'package:appwrite/models.dart' as models;
+import '../core/constants/appwrite_constants.dart';
+import '../core/utils/app_logger.dart';
+import '../features/auth/auth_service.dart';
+import '../features/counter/domain/counter_state.dart';
+import '../features/insights/domain/daily_stats.dart';
+import '../features/settings/domain/settings_state.dart';
+import 'data_repository.dart';
+
+const _tag = 'CloudDataRepository';
+
+/// Appwrite Databases-backed implementation of [DataRepository].
+///
+/// Every method talks directly to Appwrite. This class does NOT cache
+/// anything locally — that's the job of [HybridDataRepository] which
+/// wraps this together with [LocalDataRepository].
+///
+/// Document ID strategy:
+///   - daily_stats : `{userId}_{date}` (e.g. `abc123_2025-06-22`)
+///   - user_settings : `{userId}` (one doc per user)
+///   - user_profiles : `{userId}` (one doc per user)
+///
+/// All methods silently return defaults on failure so the app never
+/// crashes due to network issues.
+class CloudDataRepository implements DataRepository {
+  CloudDataRepository._(this._userId);
+
+  final String _userId;
+  late final Databases _databases;
+  bool _initialized = false;
+
+  /// Create a [CloudDataRepository] for the given user.
+  static CloudDataRepository forUser(String userId) {
+    final repo = CloudDataRepository._(userId);
+    repo._init();
+    return repo;
+  }
+
+  void _init() {
+    if (_initialized) return;
+    _databases = Databases(AuthService.instance.client);
+    _initialized = true;
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────
+
+  String get _db => AppwriteConstants.databaseId;
+  String get _dailyStats => AppwriteConstants.dailyStatsCollection;
+  String get _userSettings => AppwriteConstants.userSettingsCollection;
+  String get _userProfiles => AppwriteConstants.userProfilesCollection;
+
+  String _dailyStatsDocId(String date) => '${_userId}_$date';
+
+  /// Upsert a document. Uses Appwrite's `upsertDocument` which creates
+  /// or updates in one call.
+  Future<models.Document?> _upsert({
+    required String collectionId,
+    required String documentId,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      // ignore: deprecated_member_use
+      return await _databases.upsertDocument(
+        databaseId: _db,
+        collectionId: collectionId,
+        documentId: documentId,
+        data: data,
+        permissions: [
+          Permission.read(Role.user(_userId)),
+          Permission.update(Role.user(_userId)),
+          Permission.delete(Role.user(_userId)),
+        ],
+      );
+    } on AppwriteException catch (e, st) {
+      AppLogger.error(_tag, 'Upsert failed ($collectionId/$documentId)', e, st);
+      return null;
+    }
+  }
+
+  /// Get a single document, returns null if not found.
+  Future<models.Document?> _getDoc({
+    required String collectionId,
+    required String documentId,
+  }) async {
+    try {
+      // ignore: deprecated_member_use
+      return await _databases.getDocument(
+        databaseId: _db,
+        collectionId: collectionId,
+        documentId: documentId,
+      );
+    } on AppwriteException catch (e) {
+      if (e.code == 404) return null;
+      AppLogger.error(_tag, 'Get failed ($collectionId/$documentId)', e);
+      return null;
+    }
+  }
+
+  String _nowIso() => DateTime.now().toUtc().toIso8601String();
+
+  // ── Counter ────────────────────────────────────────────────────
+  // Counter state is session-local, not synced to cloud.
+  // Cloud only stores daily_stats (aggregated counts).
+
+  @override
+  Future<CounterState?> loadCounterState() async => null;
+
+  @override
+  Future<void> saveCounterState(CounterState state) async {
+    // Counter state is session-local, not synced.
+  }
+
+  // ── Lifetime stats ─────────────────────────────────────────────
+  // Lifetime stats are computed from the user_profiles doc in cloud.
+
+  @override
+  Future<LifetimeStats> loadLifetimeStats() async {
+    final doc = await _getDoc(
+      collectionId: _userProfiles,
+      documentId: _userId,
+    );
+    if (doc == null) {
+      return const LifetimeStats(
+        totalCounts: 0,
+        totalMalas: 0,
+        totalSessions: 0,
+      );
+    }
+    return LifetimeStats(
+      totalCounts: doc.data['total_counts'] as int? ?? 0,
+      totalMalas: doc.data['total_malas'] as int? ?? 0,
+      totalSessions: doc.data['total_sessions'] as int? ?? 0,
+    );
+  }
+
+  @override
+  Future<void> saveLifetimeStats(LifetimeStats stats) async {
+    await _upsert(
+      collectionId: _userProfiles,
+      documentId: _userId,
+      data: {
+        'user_id': _userId,
+        'display_name': '', // Will be set by SyncService
+        'total_counts': stats.totalCounts,
+        'total_malas': stats.totalMalas,
+        'total_sessions': stats.totalSessions,
+        'current_streak': 0,
+        'best_streak': 0,
+        'last_sync_at': _nowIso(),
+      },
+    );
+  }
+
+  // ── Settings ───────────────────────────────────────────────────
+
+  @override
+  Future<SettingsState?> loadSettings() async {
+    final doc = await _getDoc(
+      collectionId: _userSettings,
+      documentId: _userId,
+    );
+    if (doc == null) return null;
+
+    try {
+      final json = jsonDecode(doc.data['settings_json'] as String)
+          as Map<String, dynamic>;
+      return SettingsState.fromJson(json);
+    } catch (e, st) {
+      AppLogger.error(_tag, 'Failed to parse cloud settings', e, st);
+      return null;
+    }
+  }
+
+  @override
+  Future<void> saveSettings(SettingsState settings) async {
+    await _upsert(
+      collectionId: _userSettings,
+      documentId: _userId,
+      data: {
+        'user_id': _userId,
+        'settings_json': jsonEncode(settings.toJson()),
+        'updated_at': _nowIso(),
+      },
+    );
+  }
+
+  // ── Daily stats ────────────────────────────────────────────────
+
+  @override
+  Future<Map<String, DailyStats>> loadDailyStats() async {
+    try {
+      final result = <String, DailyStats>{};
+      String? lastId;
+      bool hasMore = true;
+
+      // Paginate through all documents for this user
+      while (hasMore) {
+        final queries = <String>[
+          Query.equal('user_id', _userId),
+          Query.limit(100),
+          if (lastId != null) Query.cursorAfter(lastId),
+        ];
+
+        // ignore: deprecated_member_use
+        final docs = await _databases.listDocuments(
+          databaseId: _db,
+          collectionId: _dailyStats,
+          queries: queries,
+        );
+
+        for (final doc in docs.documents) {
+          final date = doc.data['date'] as String;
+          result[date] = DailyStats(
+            date: date,
+            counts: doc.data['counts'] as int? ?? 0,
+            malas: doc.data['malas'] as int? ?? 0,
+            sessions: doc.data['sessions'] as int? ?? 0,
+            durationSeconds: doc.data['duration_seconds'] as int? ?? 0,
+          );
+        }
+
+        hasMore = docs.documents.length == 100;
+        if (docs.documents.isNotEmpty) {
+          lastId = docs.documents.last.$id;
+        }
+      }
+
+      AppLogger.info(_tag, 'Loaded ${result.length} daily stats from cloud');
+      return result;
+    } catch (e, st) {
+      AppLogger.error(_tag, 'loadDailyStats failed', e, st);
+      return {};
+    }
+  }
+
+  @override
+  Future<void> saveDailyStats(Map<String, DailyStats> stats) async {
+    // Batch upsert all daily stats
+    for (final entry in stats.entries) {
+      await _upsertDailyStatsDoc(entry.key, entry.value);
+    }
+  }
+
+  /// Upsert a single daily stats document.
+  Future<void> _upsertDailyStatsDoc(String date, DailyStats stats) async {
+    await _upsert(
+      collectionId: _dailyStats,
+      documentId: _dailyStatsDocId(date),
+      data: {
+        'user_id': _userId,
+        'date': date,
+        'counts': stats.counts,
+        'malas': stats.malas,
+        'sessions': stats.sessions,
+        'duration_seconds': stats.durationSeconds,
+        'updated_at': _nowIso(),
+      },
+    );
+  }
+
+  // ── Streaks ────────────────────────────────────────────────────
+  // Streaks are stored in the user_profiles document.
+
+  @override
+  Future<int> loadCurrentStreak() async {
+    final doc = await _getDoc(
+      collectionId: _userProfiles,
+      documentId: _userId,
+    );
+    return doc?.data['current_streak'] as int? ?? 0;
+  }
+
+  @override
+  Future<void> saveCurrentStreak(int streak) async {
+    // Will be saved as part of the full profile update in sync
+  }
+
+  @override
+  Future<int> loadBestStreak() async {
+    final doc = await _getDoc(
+      collectionId: _userProfiles,
+      documentId: _userId,
+    );
+    return doc?.data['best_streak'] as int? ?? 0;
+  }
+
+  @override
+  Future<void> saveBestStreak(int streak) async {
+    // Will be saved as part of the full profile update in sync
+  }
+
+  @override
+  Future<DateTime?> loadLastActiveDate() async {
+    final doc = await _getDoc(
+      collectionId: _userProfiles,
+      documentId: _userId,
+    );
+    if (doc == null) return null;
+    final syncAt = doc.data['last_sync_at'] as String?;
+    if (syncAt == null || syncAt.isEmpty) return null;
+    return DateTime.tryParse(syncAt);
+  }
+
+  @override
+  Future<void> saveLastActiveDate(DateTime date) async {
+    // Will be saved as part of the full profile update in sync
+  }
+
+  // ── Bulk operations ────────────────────────────────────────────
+
+  @override
+  Future<void> saveInsightsData({
+    required Map<String, DailyStats> dailyStats,
+    required int currentStreak,
+    required int bestStreak,
+    DateTime? lastActiveDate,
+  }) async {
+    // Save daily stats
+    await saveDailyStats(dailyStats);
+
+    // Update user profile with streak data
+    await _upsertUserProfile(
+      currentStreak: currentStreak,
+      bestStreak: bestStreak,
+    );
+  }
+
+  @override
+  Future<void> clearInsightsData() async {
+    // Delete all daily stats for this user
+    try {
+      bool hasMore = true;
+      while (hasMore) {
+        // ignore: deprecated_member_use
+        final docs = await _databases.listDocuments(
+          databaseId: _db,
+          collectionId: _dailyStats,
+          queries: [
+            Query.equal('user_id', _userId),
+            Query.limit(100),
+          ],
+        );
+
+        for (final doc in docs.documents) {
+          // ignore: deprecated_member_use
+          await _databases.deleteDocument(
+            databaseId: _db,
+            collectionId: _dailyStats,
+            documentId: doc.$id,
+          );
+        }
+
+        hasMore = docs.documents.length == 100;
+      }
+
+      // Reset profile streaks
+      await _upsertUserProfile(currentStreak: 0, bestStreak: 0);
+    } catch (e, st) {
+      AppLogger.error(_tag, 'clearInsightsData failed', e, st);
+    }
+  }
+
+  // ── Profile helpers ────────────────────────────────────────────
+
+  /// Upsert the user profile document with all aggregated data.
+  Future<void> upsertFullProfile({
+    String? displayName,
+    required int totalCounts,
+    required int totalMalas,
+    required int totalSessions,
+    required int currentStreak,
+    required int bestStreak,
+  }) async {
+    // Read existing profile to preserve display_name if not provided
+    final existing = await _getDoc(
+      collectionId: _userProfiles,
+      documentId: _userId,
+    );
+    
+    await _upsert(
+      collectionId: _userProfiles,
+      documentId: _userId,
+      data: {
+        'user_id': _userId,
+        'display_name': displayName ?? existing?.data['display_name'] as String? ?? '',
+        'total_counts': totalCounts,
+        'total_malas': totalMalas,
+        'total_sessions': totalSessions,
+        'current_streak': currentStreak,
+        'best_streak': bestStreak,
+        'last_sync_at': _nowIso(),
+      },
+    );
+  }
+
+  Future<void> _upsertUserProfile({
+    required int currentStreak,
+    required int bestStreak,
+  }) async {
+    // Read existing profile to preserve other fields
+    final existing = await _getDoc(
+      collectionId: _userProfiles,
+      documentId: _userId,
+    );
+
+    await _upsert(
+      collectionId: _userProfiles,
+      documentId: _userId,
+      data: {
+        'user_id': _userId,
+        'display_name': existing?.data['display_name'] as String? ?? '',
+        'total_counts': existing?.data['total_counts'] as int? ?? 0,
+        'total_malas': existing?.data['total_malas'] as int? ?? 0,
+        'total_sessions': existing?.data['total_sessions'] as int? ?? 0,
+        'current_streak': currentStreak,
+        'best_streak': bestStreak,
+        'last_sync_at': _nowIso(),
+      },
+    );
+  }
+
+  /// Load a single daily stats document from cloud for a given date.
+  /// Used by SyncService for per-day conflict resolution.
+  Future<DailyStats?> loadDailyStatsForDate(String date) async {
+    final doc = await _getDoc(
+      collectionId: _dailyStats,
+      documentId: _dailyStatsDocId(date),
+    );
+    if (doc == null) return null;
+    return DailyStats(
+      date: date,
+      counts: doc.data['counts'] as int? ?? 0,
+      malas: doc.data['malas'] as int? ?? 0,
+      sessions: doc.data['sessions'] as int? ?? 0,
+      durationSeconds: doc.data['duration_seconds'] as int? ?? 0,
+    );
+  }
+
+  /// Save a single daily stats entry. Used by SyncService.
+  Future<void> saveSingleDailyStats(String date, DailyStats stats) async {
+    await _upsertDailyStatsDoc(date, stats);
+  }
+}

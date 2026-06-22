@@ -2,19 +2,13 @@ import 'dart:async';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-/// SharedPreferences keys
-class ReminderPrefsKeys {
-  static const reminderEnabled = 'reminder_enabled';
-  static const reminderIntervalMinutes = 'reminder_interval_minutes';
-  static const reminderSound = 'reminder_sound';
-}
+import '../data/storage_keys.dart';
 
 /// Top-level callback - runs even when app is closed
 @pragma('vm:entry-point')
 void alarmCallback() async {
   final prefs = await SharedPreferences.getInstance();
-  final soundId = prefs.getString(ReminderPrefsKeys.reminderSound) ?? 'default';
+  final soundId = prefs.getString(StorageKeys.reminderSound) ?? 'default';
   
   final notifications = FlutterLocalNotificationsPlugin();
   
@@ -76,9 +70,8 @@ void alarmCallback() async {
 
 /// Simple reminder service using AndroidAlarmManager
 class ReminderService {
-  static final ReminderService _instance = ReminderService._internal();
-  factory ReminderService() => _instance;
-  ReminderService._internal();
+  static final ReminderService instance = ReminderService._();
+  ReminderService._();
 
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
@@ -146,9 +139,9 @@ class ReminderService {
     await stopReminder();
     
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(ReminderPrefsKeys.reminderEnabled, true);
-    await prefs.setInt(ReminderPrefsKeys.reminderIntervalMinutes, intervalMinutes);
-    await prefs.setString(ReminderPrefsKeys.reminderSound, soundId);
+    await prefs.setBool(StorageKeys.reminderEnabled, true);
+    await prefs.setInt(StorageKeys.reminderIntervalMinutes, intervalMinutes);
+    await prefs.setString(StorageKeys.reminderSound, soundId);
     
     // Show confirmation notification with selected sound
     String label = intervalMinutes >= 60 
@@ -171,7 +164,7 @@ class ReminderService {
   /// Update only the reminder sound (without restarting the timer)
   Future<void> updateReminderSound(String soundId) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(ReminderPrefsKeys.reminderSound, soundId);
+    await prefs.setString(StorageKeys.reminderSound, soundId);
   }
 
   /// Stop reminder
@@ -179,7 +172,7 @@ class ReminderService {
     await AndroidAlarmManager.cancel(_alarmId);
     await _notifications.cancelAll();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(ReminderPrefsKeys.reminderEnabled, false);
+    await prefs.setBool(StorageKeys.reminderEnabled, false);
   }
 
   /// Restore reminders on app startup
@@ -187,11 +180,11 @@ class ReminderService {
     await initialize();
     
     final prefs = await SharedPreferences.getInstance();
-    final enabled = prefs.getBool(ReminderPrefsKeys.reminderEnabled) ?? false;
+    final enabled = prefs.getBool(StorageKeys.reminderEnabled) ?? false;
     
     if (!enabled) return;
     
-    final intervalMinutes = prefs.getInt(ReminderPrefsKeys.reminderIntervalMinutes) ?? 60;
+    final intervalMinutes = prefs.getInt(StorageKeys.reminderIntervalMinutes) ?? 60;
     
     await AndroidAlarmManager.periodic(
       Duration(minutes: intervalMinutes),
