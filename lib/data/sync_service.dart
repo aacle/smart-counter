@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../core/constants/app_constants.dart';
 import '../core/utils/app_logger.dart';
 import '../features/auth/domain/app_user.dart';
 import '../features/insights/domain/daily_stats.dart';
@@ -260,26 +261,44 @@ class SyncService {
 
   // ── Streaks Sync ───────────────────────────────────────────────
 
-  /// Streaks: take the max of local and cloud.
+  /// Streaks are recomputed from the merged daily stats
+  /// rather than independently synced, since streaks now
+  /// require min 3 malas per day.
   Future<void> _syncStreaks(
     LocalDataRepository local,
     CloudDataRepository cloud,
   ) async {
-    final localCurrentStreak = await local.loadCurrentStreak();
-    final cloudCurrentStreak = await cloud.loadCurrentStreak();
-    final localBestStreak = await local.loadBestStreak();
-    final cloudBestStreak = await cloud.loadBestStreak();
+    final dailyStats = await local.loadDailyStats();
+    final mergedCurrent = _computeStreak(dailyStats);
+    final cloudBest = await cloud.loadBestStreak();
+    final localBest = await local.loadBestStreak();
+    final mergedBest = localBest > cloudBest ? localBest : cloudBest;
 
-    final mergedCurrent = localCurrentStreak > cloudCurrentStreak
-        ? localCurrentStreak
-        : cloudCurrentStreak;
-    final mergedBest = localBestStreak > cloudBestStreak
-        ? localBestStreak
-        : cloudBestStreak;
-
-    // Write back to local
     await local.saveCurrentStreak(mergedCurrent);
     await local.saveBestStreak(mergedBest);
+  }
+
+  int _computeStreak(Map<String, DailyStats> dailyStats) {
+    final todayKey = _todayKey();
+    final today = dailyStats[todayKey];
+
+    final startDate = (today != null && today.malas >= kMinStreakMalas)
+        ? DateTime.now()
+        : DateTime.now().subtract(const Duration(days: 1));
+
+    int streak = 0;
+    for (int i = 0; i < 365; i++) {
+      final date = startDate.subtract(Duration(days: i));
+      final key =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final day = dailyStats[key];
+      if (day != null && day.malas >= kMinStreakMalas) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
   }
 
   // ── User Profile Update ────────────────────────────────────────

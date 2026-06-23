@@ -4,6 +4,9 @@ library;
 /// The standard Mala size - 108 beads
 const int kMalaSize = 108;
 
+/// Minimum malas per day required for streak eligibility and leaderboard ranking
+const int kMinStreakMalas = 3;
+
 /// Quarter Mala - for milestone haptic feedback
 const int kQuarterMala = 27;
 

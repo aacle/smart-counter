@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
+import '../core/constants/app_constants.dart';
 import '../core/constants/appwrite_constants.dart';
 import '../core/utils/app_logger.dart';
 import '../features/auth/auth_service.dart';
@@ -552,14 +553,22 @@ class CloudDataRepository implements DataRepository {
       LeaderboardSort.currentStreak => 'current_streak',
     };
 
+    final minMalasCount = kMalaSize * kMinStreakMalas; // 324
+
     try {
+      final queries = <String>[
+        if (sortBy == LeaderboardSort.todayCounts)
+          Query.greaterThan('today_counts', minMalasCount - 1),
+        if (sortBy == LeaderboardSort.currentStreak)
+          Query.greaterThan('current_streak', 0),
+        Query.orderDesc(sortAttr),
+        Query.limit(limit),
+      ];
+
       final result = await _databases.listDocuments(
         databaseId: _db,
         collectionId: _userProfiles,
-        queries: [
-          Query.orderDesc(sortAttr),
-          Query.limit(limit),
-        ],
+        queries: queries,
       );
 
       return result.documents.asMap().entries.map((entry) {
@@ -593,14 +602,19 @@ class CloudDataRepository implements DataRepository {
       LeaderboardSort.currentStreak => 'current_streak',
     };
 
+    final minMalasCount = kMalaSize * kMinStreakMalas;
+
     try {
+      final queries = <String>[
+        if (sortBy == LeaderboardSort.todayCounts)
+          Query.greaterThan('today_counts', minMalasCount - 1),
+        Query.greaterThan(sortAttr, totalCounts),
+        Query.limit(1),
+      ];
       final result = await _databases.listDocuments(
         databaseId: _db,
         collectionId: _userProfiles,
-        queries: [
-          Query.greaterThan(sortAttr, totalCounts),
-          Query.limit(1),
-        ],
+        queries: queries,
       );
       return result.total + 1;
     } on AppwriteException catch (e, st) {
