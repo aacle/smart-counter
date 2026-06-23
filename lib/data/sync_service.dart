@@ -317,13 +317,11 @@ class SyncService {
     int totalCounts = 0;
     int totalMalas = 0;
     int totalSessions = 0;
-    int bestDailyMalas = 0;
 
     for (final day in dailyStats.values) {
       totalCounts += day.counts;
       totalMalas += day.malas;
       totalSessions += day.sessions;
-      if (day.malas > bestDailyMalas) bestDailyMalas = day.malas;
     }
 
     // Also add lifetime stats (from before daily_stats tracking)
@@ -341,7 +339,6 @@ class SyncService {
       currentStreak: currentStreak,
       bestStreak: bestStreak,
       todayCounts: dailyStats[_todayKey()]?.counts ?? 0,
-      bestDailyMalas: bestDailyMalas,
     );
   }
 

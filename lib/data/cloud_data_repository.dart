@@ -157,7 +157,6 @@ class CloudDataRepository implements DataRepository {
         'current_streak': existing?.data['current_streak'] as int? ?? 0,
         'best_streak': existing?.data['best_streak'] as int? ?? 0,
         'today_counts': existing?.data['today_counts'] as int? ?? 0,
-        'best_daily_malas': existing?.data['best_daily_malas'] as int? ?? 0,
         'last_sync_at': _nowIso(),
       },
     );
@@ -331,7 +330,6 @@ class CloudDataRepository implements DataRepository {
     await saveDailyStats(dailyStats);
 
     final totals = _aggregateDailyStats(dailyStats);
-    final bestMalas = _computeBestDailyMalas(dailyStats);
     await upsertFullProfile(
       totalCounts: totals.totalCounts,
       totalMalas: totals.totalMalas,
@@ -339,7 +337,6 @@ class CloudDataRepository implements DataRepository {
       currentStreak: currentStreak,
       bestStreak: bestStreak,
       todayCounts: dailyStats[_todayKey()]?.counts ?? 0,
-      bestDailyMalas: bestMalas,
     );
   }
 
@@ -390,7 +387,6 @@ class CloudDataRepository implements DataRepository {
     required int currentStreak,
     required int bestStreak,
     required int todayCounts,
-    int bestDailyMalas = 0,
   }) async {
     final existing = await _getDoc(
       collectionId: _userProfiles,
@@ -410,7 +406,6 @@ class CloudDataRepository implements DataRepository {
         'current_streak': currentStreak,
         'best_streak': bestStreak,
         'today_counts': todayCounts,
-        'best_daily_malas': bestDailyMalas,
         'last_sync_at': _nowIso(),
       },
     );
@@ -433,9 +428,8 @@ class CloudDataRepository implements DataRepository {
       AppLogger.info(_tag, 'Updated user profile aggregates');
     } on AppwriteException catch (e, st) {
       final message = e.message ?? '';
-      final canRetryWithoutNewFields = message.contains('avatar_url') ||
-          message.contains('today_counts') ||
-          message.contains('best_daily_malas');
+      final canRetryWithoutNewFields =
+          message.contains('avatar_url') || message.contains('today_counts');
 
       if (!canRetryWithoutNewFields) {
         AppLogger.error(_tag, 'Profile upsert failed', e, st);
@@ -444,8 +438,7 @@ class CloudDataRepository implements DataRepository {
 
       final fallback = Map<String, dynamic>.from(data)
         ..remove('avatar_url')
-        ..remove('today_counts')
-        ..remove('best_daily_malas');
+        ..remove('today_counts');
 
       try {
         // Keep all-time leaderboard totals updating even before the Appwrite
@@ -498,7 +491,6 @@ class CloudDataRepository implements DataRepository {
         'current_streak': currentStreak,
         'best_streak': bestStreak,
         'today_counts': existing?.data['today_counts'] as int? ?? 0,
-        'best_daily_malas': existing?.data['best_daily_malas'] as int? ?? 0,
         'last_sync_at': _nowIso(),
       },
     );
@@ -520,14 +512,6 @@ class CloudDataRepository implements DataRepository {
       totalMalas: totalMalas,
       totalSessions: totalSessions,
     );
-  }
-
-  int _computeBestDailyMalas(Map<String, DailyStats> dailyStats) {
-    int best = 0;
-    for (final day in dailyStats.values) {
-      if (day.malas > best) best = day.malas;
-    }
-    return best;
   }
 
   String _todayKey() {
@@ -574,7 +558,7 @@ class CloudDataRepository implements DataRepository {
     try {
       final queries = <String>[
         if (sortBy == LeaderboardSort.totalCounts)
-          Query.greaterThan('best_daily_malas', kMinStreakMalas - 1),
+          Query.greaterThan('total_counts', minMalasCount - 1),
         if (sortBy == LeaderboardSort.todayCounts)
           Query.greaterThan('today_counts', minMalasCount - 1),
         if (sortBy == LeaderboardSort.currentStreak)
@@ -625,7 +609,7 @@ class CloudDataRepository implements DataRepository {
     try {
       final queries = <String>[
         if (sortBy == LeaderboardSort.totalCounts)
-          Query.greaterThan('best_daily_malas', kMinStreakMalas - 1),
+          Query.greaterThan('total_counts', minMalasCount - 1),
         if (sortBy == LeaderboardSort.todayCounts)
           Query.greaterThan('today_counts', minMalasCount - 1),
         Query.greaterThan(sortAttr, totalCounts),

@@ -155,13 +155,11 @@ class HybridDataRepository implements DataRepository {
           int totalCounts = 0;
           int totalMalas = 0;
           int totalSessions = 0;
-          int bestDailyMalas = 0;
 
           for (final day in allDailyStats.values) {
             totalCounts += day.counts;
             totalMalas += day.malas;
             totalSessions += day.sessions;
-            if (day.malas > bestDailyMalas) bestDailyMalas = day.malas;
           }
 
           totalCounts += lifetimeStats.totalCounts;
@@ -175,7 +173,6 @@ class HybridDataRepository implements DataRepository {
             currentStreak: currentStreak,
             bestStreak: bestStreak,
             todayCounts: allDailyStats[todayKey]?.counts ?? 0,
-            bestDailyMalas: bestDailyMalas,
           );
         }
       }, 'saveInsightsData(today)');
