@@ -106,7 +106,20 @@ jobs:
           name: android-aab
           path: artifacts/android
 
+      - name: Check if release already exists
+        id: release_check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release for tag '${{ github.ref_name }}' already exists; skipping asset upload."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
+        if: steps.release_check.outputs.exists != 'true'
         uses: softprops/action-gh-release@v1
         with:
           files: |
