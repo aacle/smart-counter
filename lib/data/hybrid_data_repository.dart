@@ -66,7 +66,8 @@ class HybridDataRepository implements DataRepository {
     await _local.saveSettings(settings);
 
     if (!SyncService.instance.hasCompletedInitialSync) {
-      AppLogger.info(_tag, 'Skipping cloud saveSettings: Initial sync not complete');
+      AppLogger.info(
+          _tag, 'Skipping cloud saveSettings: Initial sync not complete');
       return;
     }
 
@@ -76,8 +77,7 @@ class HybridDataRepository implements DataRepository {
   // ── Daily stats ────────────────────────────────────────────────
 
   @override
-  Future<Map<String, DailyStats>> loadDailyStats() =>
-      _local.loadDailyStats();
+  Future<Map<String, DailyStats>> loadDailyStats() => _local.loadDailyStats();
 
   @override
   Future<void> saveDailyStats(Map<String, DailyStats> stats) async {
@@ -128,7 +128,8 @@ class HybridDataRepository implements DataRepository {
 
     // Sync Guard: Do not overwrite cloud data if we haven't successfully downloaded it yet.
     if (!SyncService.instance.hasCompletedInitialSync) {
-      AppLogger.info(_tag, 'Skipping cloud saveInsightsData: Initial sync not complete');
+      AppLogger.info(
+          _tag, 'Skipping cloud saveInsightsData: Initial sync not complete');
       return;
     }
 
@@ -144,27 +145,29 @@ class HybridDataRepository implements DataRepository {
         final todayStats = dailyStats[todayKey];
         if (todayStats != null) {
           await _cloud.saveSingleDailyStats(todayKey, todayStats);
-          
-          // Also update the aggregated lifetime stats in the user profile so the 
+
+          // Also update the aggregated lifetime stats in the user profile so the
           // cloud stays instantly in sync with the device's all-time counts.
           final lifetimeStats = await loadLifetimeStats();
-          
+
           // We need to re-aggregate the total counts just like SyncService does
           final allDailyStats = await _local.loadDailyStats();
           int totalCounts = 0;
           int totalMalas = 0;
           int totalSessions = 0;
-          
+          int bestDailyMalas = 0;
+
           for (final day in allDailyStats.values) {
             totalCounts += day.counts;
             totalMalas += day.malas;
             totalSessions += day.sessions;
+            if (day.malas > bestDailyMalas) bestDailyMalas = day.malas;
           }
-          
+
           totalCounts += lifetimeStats.totalCounts;
           totalMalas += lifetimeStats.totalMalas;
           totalSessions += lifetimeStats.totalSessions;
-          
+
           await _cloud.upsertFullProfile(
             totalCounts: totalCounts,
             totalMalas: totalMalas,
@@ -172,6 +175,7 @@ class HybridDataRepository implements DataRepository {
             currentStreak: currentStreak,
             bestStreak: bestStreak,
             todayCounts: allDailyStats[todayKey]?.counts ?? 0,
+            bestDailyMalas: bestDailyMalas,
           );
         }
       }, 'saveInsightsData(today)');

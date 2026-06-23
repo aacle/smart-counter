@@ -178,6 +178,12 @@ Future<void> _createUserProfilesCollection(Databases db) async {
     'today_counts',
     defaultValue: 0,
   );
+  await _ensureIntAttr(
+    db,
+    _userProfilesId,
+    'best_daily_malas',
+    defaultValue: 0,
+  );
   await _ensureStringAttr(db, _userProfilesId, 'last_sync_at', 30,
       required: true);
 
@@ -241,9 +247,14 @@ Future<void> _backfillUserProfiles(Databases db) async {
 
       final totals = totalsByUser.putIfAbsent(userId, _ProfileTotals.new);
       final counts = data['counts'] as int? ?? 0;
+      final malas = data['malas'] as int? ?? 0;
       totals.totalCounts += counts;
-      totals.totalMalas += data['malas'] as int? ?? 0;
+      totals.totalMalas += malas;
       totals.totalSessions += data['sessions'] as int? ?? 0;
+
+      if (malas > totals.bestDailyMalas) {
+        totals.bestDailyMalas = malas;
+      }
 
       if (data['date'] == todayKey) {
         totals.todayCounts = counts;
@@ -276,6 +287,7 @@ Future<void> _backfillUserProfiles(Databases db) async {
       'current_streak': existing['current_streak'] as int? ?? 0,
       'best_streak': existing['best_streak'] as int? ?? 0,
       'today_counts': totals.todayCounts,
+      'best_daily_malas': totals.bestDailyMalas,
       'last_sync_at': DateTime.now().toUtc().toIso8601String(),
     };
 
@@ -373,6 +385,7 @@ class _ProfileTotals {
   int totalMalas = 0;
   int totalSessions = 0;
   int todayCounts = 0;
+  int bestDailyMalas = 0;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
