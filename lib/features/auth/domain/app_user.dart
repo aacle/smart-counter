@@ -18,6 +18,27 @@ class AppUser {
     required this.createdAt,
   });
 
+  factory AppUser.fromJson(Map<String, dynamic> json) {
+    return AppUser(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      avatarUrl: json['avatarUrl'] as String?,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'avatarUrl': avatarUrl,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
   /// Display name with fallback to email prefix.
   String get displayName {
     if (name.isNotEmpty) return name;
@@ -26,7 +47,8 @@ class AppUser {
   }
 
   /// First initial for avatar placeholder.
-  String get initial => displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
+  String get initial =>
+      displayName.isNotEmpty ? displayName[0].toUpperCase() : '?';
 
   @override
   bool operator ==(Object other) =>

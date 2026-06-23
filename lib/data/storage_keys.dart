@@ -34,6 +34,7 @@ class StorageKeys {
   static const reminderSound = 'reminder_sound';
 
   // ── Auth & Migration (owned by app layer) ──
+  static const cachedAuthUser = 'cached_auth_user';
   static const hasSeenMigrationPopup = 'has_seen_migration_popup';
   static const hasSeenOnboarding = 'has_seen_onboarding';
 

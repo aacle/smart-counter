@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/colors.dart';
+import '../../../data/data_provider.dart';
+import '../../../data/sync_service.dart';
 import '../../../services/volume_rocker_service.dart';
 import '../../../services/reminder_service.dart';
 import '../../../services/haptic_service.dart';
@@ -51,6 +53,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
   Duration _sessionDuration = Duration.zero;
   bool _showCelebration = false;
   bool _isAutoCountActive = false;
+  bool _autoCountExpanded = false;
   GoalMissInfo? _goalMissInfo;
 
   @override
@@ -469,15 +472,8 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
                       ),
                     ),
                   ),
-                  // Title
-                  Text(
-                    settings.customTitle,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w300,
-                          letterSpacing: 2,
-                        ),
-                  ),
+                  // Title / subtle sync status
+                  Expanded(child: Center(child: _buildHeaderTitle(settings))),
                   // Reminder Button
                   _buildReminderButton(),
                 ],
@@ -532,7 +528,198 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
     );
   }
 
+  Widget _buildHeaderTitle(SettingsState settings) {
+    final syncAsync = ref.watch(syncStatusProvider);
+    final result = syncAsync.valueOrNull ?? SyncService.instance.lastResult;
+
+    if (result.status == SyncStatus.syncing) {
+      return _buildCompactStatus(
+        icon: Icons.sync,
+        label: 'Syncing',
+        color: AppColors.primary,
+        spinning: true,
+      );
+    }
+
+    if (result.status == SyncStatus.success) {
+      return _buildCompactStatus(
+        icon: Icons.check_circle_rounded,
+        label: 'Synced',
+        color: AppColors.success,
+      );
+    }
+
+    if (result.status == SyncStatus.error) {
+      return _buildCompactStatus(
+        icon: Icons.cloud_off_rounded,
+        label: 'Offline',
+        color: const Color(0xFFEF5350),
+      );
+    }
+
+    final title = settings.customTitle.trim().isEmpty
+        ? '\u0938\u0941\u092E\u093F\u0930\u0928'
+        : settings.customTitle.trim();
+
+    return Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w300,
+            letterSpacing: 2,
+          ),
+    );
+  }
+
+  Widget _buildCompactStatus({
+    required IconData icon,
+    required String label,
+    required Color color,
+    bool spinning = false,
+  }) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      child: Container(
+        key: ValueKey(label),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (spinning)
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: color,
+                ),
+              )
+            else
+              Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAutoCountToggle(settings) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: _autoCountExpanded
+          ? _buildExpandedAutoCount(settings)
+          : _buildCollapsedAutoCount(settings),
+    );
+  }
+
+  /// Slim collapsed pill. Tap to expand; shows a quick-stop chip when active.
+  Widget _buildCollapsedAutoCount(settings) {
+    final active = _isAutoCountActive;
+    final accent = active ? AppColors.success : AppColors.primary;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Material(
+        color: active
+            ? AppColors.success.withValues(alpha: 0.12)
+            : AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () => setState(() => _autoCountExpanded = true),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: active
+                    ? AppColors.success.withValues(alpha: 0.3)
+                    : Colors.transparent,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.autorenew,
+                  color: active ? AppColors.success : AppColors.textMuted,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    active
+                        ? 'Auto Chant · ${_formatSpeed(settings.autoCountSpeed)}'
+                        : 'Auto Chant',
+                    style: TextStyle(
+                      color: active
+                          ? AppColors.success
+                          : AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                if (active)
+                  GestureDetector(
+                    onTap: _stopAutoCount,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade400.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Stop',
+                        style: TextStyle(
+                          color: Colors.red.shade300,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Icon(
+                    Icons.keyboard_arrow_down,
+                    color: accent.withValues(alpha: 0.7),
+                    size: 22,
+                  ),
+                if (active) const SizedBox(width: 8),
+                if (active)
+                  Icon(
+                    Icons.keyboard_arrow_up,
+                    color: AppColors.success.withValues(alpha: 0.7),
+                    size: 22,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Full control bar with speed selector, start/stop, and a collapse button.
+  Widget _buildExpandedAutoCount(settings) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -629,6 +816,13 @@ class _CounterScreenState extends ConsumerState<CounterScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             child: Text(_isAutoCountActive ? 'Stop' : 'Start'),
+          ),
+          // Collapse button
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_up, size: 22),
+            color: AppColors.textMuted,
+            onPressed: () => setState(() => _autoCountExpanded = false),
+            tooltip: 'Hide',
           ),
         ],
       ),

@@ -82,83 +82,83 @@ class ThemeColorPalette {
     switch (theme) {
       case AppThemeColor.divineGold:
         return const ThemeColorPalette(
-          primary: Color(0xFFFFD700),
-          primaryLight: Color(0xFFFFE44D),
-          primaryDark: Color(0xFFCCAA00),
-          secondary: Color(0xFFFF8C00),
-          secondaryLight: Color(0xFFFFAD33),
-          glow: Color(0xFFFFD700),
-          beadActive: Color(0xFFFFD700),
+          primary: Color(0xFFE0B252),
+          primaryLight: Color(0xFFEDC878),
+          primaryDark: Color(0xFFB8902F),
+          secondary: Color(0xFFD99A4A),
+          secondaryLight: Color(0xFFE8B873),
+          glow: Color(0xFFE0B252),
+          beadActive: Color(0xFFE0B252),
         );
       case AppThemeColor.sacredEmerald:
         return const ThemeColorPalette(
-          primary: Color(0xFF00C853),
-          primaryLight: Color(0xFF5EFC82),
-          primaryDark: Color(0xFF009624),
-          secondary: Color(0xFF00E676),
-          secondaryLight: Color(0xFF66FFA6),
-          glow: Color(0xFF00C853),
-          beadActive: Color(0xFF00C853),
+          primary: Color(0xFF5BAE7F),
+          primaryLight: Color(0xFF7FC499),
+          primaryDark: Color(0xFF3F8A5E),
+          secondary: Color(0xFF4FAA9E),
+          secondaryLight: Color(0xFF78C2B8),
+          glow: Color(0xFF5BAE7F),
+          beadActive: Color(0xFF5BAE7F),
         );
       case AppThemeColor.celestialPurple:
         return const ThemeColorPalette(
-          primary: Color(0xFFAA00FF),
-          primaryLight: Color(0xFFD500F9),
-          primaryDark: Color(0xFF7B00B2),
-          secondary: Color(0xFFE040FB),
-          secondaryLight: Color(0xFFEA80FC),
-          glow: Color(0xFFAA00FF),
-          beadActive: Color(0xFFAA00FF),
+          primary: Color(0xFF9D7BCC),
+          primaryLight: Color(0xFFB89BDB),
+          primaryDark: Color(0xFF7A5DAA),
+          secondary: Color(0xFF8A6FBF),
+          secondaryLight: Color(0xFFA893D4),
+          glow: Color(0xFF9D7BCC),
+          beadActive: Color(0xFF9D7BCC),
         );
       case AppThemeColor.oceanBlue:
         return const ThemeColorPalette(
-          primary: Color(0xFF2962FF),
-          primaryLight: Color(0xFF768FFF),
-          primaryDark: Color(0xFF0039CB),
-          secondary: Color(0xFF448AFF),
-          secondaryLight: Color(0xFF83B9FF),
-          glow: Color(0xFF2962FF),
-          beadActive: Color(0xFF2962FF),
+          primary: Color(0xFF5B8DEF),
+          primaryLight: Color(0xFF82A8F2),
+          primaryDark: Color(0xFF4070C9),
+          secondary: Color(0xFF4F86D6),
+          secondaryLight: Color(0xFF7AA5E6),
+          glow: Color(0xFF5B8DEF),
+          beadActive: Color(0xFF5B8DEF),
         );
       case AppThemeColor.lotusPink:
         return const ThemeColorPalette(
-          primary: Color(0xFFFF4081),
-          primaryLight: Color(0xFFFF79B0),
-          primaryDark: Color(0xFFC60055),
-          secondary: Color(0xFFFF80AB),
-          secondaryLight: Color(0xFFFFB2CC),
-          glow: Color(0xFFFF4081),
-          beadActive: Color(0xFFFF4081),
+          primary: Color(0xFFE879A6),
+          primaryLight: Color(0xFFF099BD),
+          primaryDark: Color(0xFFC45A88),
+          secondary: Color(0xFFD96B9A),
+          secondaryLight: Color(0xFFEA93B5),
+          glow: Color(0xFFE879A6),
+          beadActive: Color(0xFFE879A6),
         );
       case AppThemeColor.sunriseOrange:
         return const ThemeColorPalette(
-          primary: Color(0xFFFF6D00),
-          primaryLight: Color(0xFFFF9E40),
-          primaryDark: Color(0xFFC43C00),
-          secondary: Color(0xFFFF9100),
-          secondaryLight: Color(0xFFFFC246),
-          glow: Color(0xFFFF6D00),
-          beadActive: Color(0xFFFF6D00),
+          primary: Color(0xFFE8924A),
+          primaryLight: Color(0xFFF0AC72),
+          primaryDark: Color(0xFFC2742F),
+          secondary: Color(0xFFD9824A),
+          secondaryLight: Color(0xFFE8A070),
+          glow: Color(0xFFE8924A),
+          beadActive: Color(0xFFE8924A),
         );
       case AppThemeColor.pureWhite:
         return const ThemeColorPalette(
-          primary: Color(0xFFFFFFFF),
+          primary: Color(0xFFEDEDED),
           primaryLight: Color(0xFFFFFFFF),
-          primaryDark: Color(0xFFE0E0E0),
+          primaryDark: Color(0xFFC8C8C8),
           secondary: Color(0xFFBDBDBD),
           secondaryLight: Color(0xFFE0E0E0),
-          glow: Color(0xFFFFFFFF),
-          beadActive: Color(0xFFFFFFFF),
+          glow: Color(0xFFEDEDED),
+          beadActive: Color(0xFFEDEDED),
         );
       case AppThemeColor.sacredRed:
         return const ThemeColorPalette(
-          primary: Color(0xFFFF1744),
-          primaryLight: Color(0xFFFF616F),
-          primaryDark: Color(0xFFC4001D),
-          secondary: Color(0xFFFF5252),
-          secondaryLight: Color(0xFFFF867F),
-          glow: Color(0xFFFF1744),
-          beadActive: Color(0xFFFF1744),
+          primary: Color(0xFFE05A5A),
+          primaryLight: Color(0xFFED7E7E),
+          primaryDark: Color(0xFFB84545),
+          secondary: Color(0xFFD95555),
+          secondaryLight: Color(0xFFEA8080),
+          glow: Color(0xFFE05A5A),
+          beadActive: Color(0xFFE05A5A),
         );
     }
   }

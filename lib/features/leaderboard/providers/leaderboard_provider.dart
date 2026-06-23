@@ -121,7 +121,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       );
     } catch (e, st) {
       AppLogger.error('LeaderboardNotifier', 'Failed to load', e, st);
-      state = state.copyWith(isLoading: false, error: 'Failed to load leaderboard');
+      state =
+          state.copyWith(isLoading: false, error: 'Failed to load leaderboard');
     }
   }
 
@@ -156,8 +157,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
     final insights = _ref.read(insightsProvider);
     final today = insights.dailyStats[_todayKey()];
     if (today != null && today.counts > 0) return today.counts;
-    final counter = _ref.read(counterProvider);
-    return counter.count;
+    return 0;
   }
 
   int _getStreak() {

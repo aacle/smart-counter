@@ -43,7 +43,7 @@ class AccountSection extends ConsumerWidget {
             ),
           ),
           // Content based on auth state
-          if (authState.isLoading)
+          if (authState.status == AuthStatus.unknown || authState.isLoading)
             _buildLoadingState(context)
           else if (authState.isAuthenticated)
             _buildSignedInState(context, ref, authState)
@@ -76,15 +76,14 @@ class AccountSection extends ConsumerWidget {
     final user = authState.user!;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // User info row
           Row(
             children: [
-              // Avatar circle
               CircleAvatar(
-                radius: 22,
+                radius: 24,
                 backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                 child: Text(
                   user.initial,
@@ -96,7 +95,6 @@ class AccountSection extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              // Name + email
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,30 +120,37 @@ class AccountSection extends ConsumerWidget {
                   ],
                 ),
               ),
-              // Dynamic sync status indicator
-              _SyncStatusBadge(),
+              IconButton(
+                tooltip: 'Sign out',
+                onPressed: () => _confirmSignOut(context, ref),
+                icon: Icon(Icons.logout_rounded, color: AppColors.textMuted),
+              ),
             ],
           ),
-          const SizedBox(height: 14),
-          // Sign out button
-          SizedBox(
+          const SizedBox(height: 12),
+          Container(
             width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _confirmSignOut(context, ref),
-              icon: Icon(Icons.logout, size: 18, color: AppColors.textSecondary),
-              label: Text(
-                'Sign Out',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(
-                  color: AppColors.textMuted.withValues(alpha: 0.3),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.verified_user_outlined,
+                    size: 16, color: AppColors.success),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Google account connected',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+                _SyncStatusBadge(),
+              ],
             ),
           ),
         ],
@@ -159,22 +164,51 @@ class AccountSection extends ConsumerWidget {
     AuthState authState,
   ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Benefits text
-          Text(
-            'Sign in to sync your progress across devices and join the leaderboard.',
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 13,
-              height: 1.4,
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.14),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.cloud_sync_outlined,
+                        size: 20, color: AppColors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Sync and leaderboard',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Sign in once to back up progress and keep your rank updated. Offline counting still works normally.',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+              ],
             ),
           ),
-          // Error message if sign-in failed
           if (authState.error != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               authState.error!,
               style: TextStyle(
@@ -184,7 +218,6 @@ class AccountSection extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 14),
-          // Google sign-in button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -202,17 +235,6 @@ class AccountSection extends ConsumerWidget {
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          // "Continue offline" note
-          Center(
-            child: Text(
-              'Your data stays on this device until you sign in',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 11,
               ),
             ),
           ),
@@ -236,7 +258,7 @@ class AccountSection extends ConsumerWidget {
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         content: Text(
-          'Your local data will be kept. You can sign in again anytime to resume syncing.',
+          'This device will switch to offline guest mode. Your cloud backup stays safe, and you can sign in again anytime.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppColors.textMuted,
               ),
@@ -301,14 +323,11 @@ class _SyncStatusBadge extends ConsumerWidget {
         spinning = false;
       case SyncStatus.error:
         icon = Icons.warning_amber_rounded;
-        color = Colors.orange;
+        color = const Color(0xFFEF5350);
         label = 'Retry';
         spinning = false;
       case SyncStatus.idle:
-        icon = Icons.cloud_outlined;
-        color = AppColors.textMuted;
-        label = 'Cloud';
-        spinning = false;
+        return const SizedBox.shrink();
     }
 
     return Container(

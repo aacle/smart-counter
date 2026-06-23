@@ -74,7 +74,7 @@ class SettingsTile extends StatelessWidget {
                 Switch(
                   value: switchValue!,
                   onChanged: onSwitchChanged,
-                  activeColor: AppColors.primary,
+                  activeThumbColor: AppColors.primary,
                   activeTrackColor: AppColors.primary.withValues(alpha: 0.3),
                   inactiveThumbColor: AppColors.textMuted,
                   inactiveTrackColor: AppColors.surface,

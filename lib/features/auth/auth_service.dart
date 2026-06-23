@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/appwrite_constants.dart';
 import '../../core/utils/app_logger.dart';
+import '../../data/storage_keys.dart';
 import 'domain/app_user.dart';
 
 const _tag = 'AuthService';
@@ -60,21 +61,49 @@ class AuthService {
   /// session exists, `null` otherwise. This is a silent check — no
   /// browser/webview is opened.
   Future<AppUser?> restoreSession() async {
+    final cachedUser = await cachedUserOrNull();
+
     try {
       final user = await _account.get();
-      final avatarUrl = await _cachedAvatarUrl();
+      final avatarUrl = await _cachedAvatarUrl(user.$id);
       final appUser = _mapUser(user, avatarUrl: avatarUrl);
+      await _cacheAuthUser(appUser);
       AppLogger.info(_tag, 'Session restored for ${appUser.displayName}');
       return appUser;
     } on AppwriteException catch (e) {
       if (e.code == 401) {
         AppLogger.info(_tag, 'No active session');
+        await _clearAuthUserCache();
+        await _clearAvatarCache(cachedUser?.id);
       } else {
         AppLogger.error(_tag, 'Session restore failed', e);
+        if (cachedUser != null) {
+          AppLogger.info(_tag, 'Using cached auth user while offline');
+          return cachedUser;
+        }
       }
       return null;
     } catch (e) {
       AppLogger.error(_tag, 'Unexpected error restoring session', e);
+      if (cachedUser != null) {
+        AppLogger.info(_tag, 'Using cached auth user after restore error');
+        return cachedUser;
+      }
+      return null;
+    }
+  }
+
+  /// Returns the last known authenticated user without touching the network.
+  Future<AppUser?> cachedUserOrNull() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(StorageKeys.cachedAuthUser);
+      if (raw == null) return null;
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final user = AppUser.fromJson(data);
+      return user.id.isEmpty || user.email.isEmpty ? null : user;
+    } catch (e) {
+      AppLogger.error(_tag, 'Failed to load cached auth user', e);
       return null;
     }
   }
@@ -100,9 +129,10 @@ class AuthService {
       final user = await _account.get();
       final avatarUrl = await _fetchGoogleAvatar();
       if (avatarUrl != null) {
-        await _cacheAvatarUrl(avatarUrl);
+        await _cacheAvatarUrl(user.$id, avatarUrl);
       }
       final appUser = _mapUser(user, avatarUrl: avatarUrl);
+      await _cacheAuthUser(appUser);
       AppLogger.info(_tag, 'Signed in as ${appUser.displayName}');
       return appUser;
     } on AppwriteException catch (e) {
@@ -119,14 +149,21 @@ class AuthService {
   /// Delete the current session (sign out).
   /// Returns `true` on success, `false` on failure.
   Future<bool> signOut() async {
+    final userId = await _currentUserIdOrNull();
     try {
       await _account.deleteSession(sessionId: 'current');
+      await _clearAuthUserCache();
+      await _clearAvatarCache(userId);
       AppLogger.info(_tag, 'Signed out successfully');
       return true;
     } on AppwriteException catch (e) {
+      await _clearAvatarCache(userId);
+      await _clearAuthUserCache();
       AppLogger.error(_tag, 'Sign-out failed', e);
       return false;
     } catch (e) {
+      await _clearAvatarCache(userId);
+      await _clearAuthUserCache();
       AppLogger.error(_tag, 'Unexpected error during sign-out', e);
       return false;
     }
@@ -164,8 +201,7 @@ class AuthService {
       final sessions = await _account.listSessions();
       final googleSession = sessions.sessions
           .cast<models.Session?>()
-          .firstWhere((s) => s?.provider == 'google',
-              orElse: () => null);
+          .firstWhere((s) => s?.provider == 'google', orElse: () => null);
       if (googleSession == null) return null;
 
       final token = googleSession.providerAccessToken;
@@ -182,7 +218,9 @@ class AuthService {
           final pic = data['picture'] as String?;
           if (pic != null && pic.isNotEmpty) {
             // Ensure HTTPS
-            return pic.startsWith('http://') ? pic.replaceFirst('http://', 'https://') : pic;
+            return pic.startsWith('http://')
+                ? pic.replaceFirst('http://', 'https://')
+                : pic;
           }
         }
       } finally {
@@ -194,15 +232,47 @@ class AuthService {
     return null;
   }
 
-  static const _avatarCacheKey = 'cached_google_avatar_url';
+  static const _legacyAvatarCacheKey = 'cached_google_avatar_url';
+  static const _avatarCachePrefix = 'cached_google_avatar_url_';
 
-  Future<void> _cacheAvatarUrl(String url) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_avatarCacheKey, url);
+  String _avatarCacheKey(String userId) => '$_avatarCachePrefix$userId';
+
+  Future<String?> _currentUserIdOrNull() async {
+    try {
+      final user = await _account.get();
+      return user.$id;
+    } catch (_) {
+      return null;
+    }
   }
 
-  Future<String?> _cachedAvatarUrl() async {
+  Future<void> _cacheAvatarUrl(String userId, String url) async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_avatarCacheKey);
+    await prefs.setString(_avatarCacheKey(userId), url);
+    await prefs.remove(_legacyAvatarCacheKey);
+  }
+
+  Future<void> _cacheAuthUser(AppUser user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        StorageKeys.cachedAuthUser, jsonEncode(user.toJson()));
+  }
+
+  Future<void> _clearAuthUserCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(StorageKeys.cachedAuthUser);
+  }
+
+  Future<String?> _cachedAvatarUrl(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_avatarCacheKey(userId));
+  }
+
+  Future<void> _clearAvatarCache(String? userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (userId != null) {
+      await prefs.remove(_avatarCacheKey(userId));
+    }
+    await prefs.remove(_legacyAvatarCacheKey);
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/local_data_repository.dart';
 import '../auth_service.dart';
@@ -30,7 +31,8 @@ class AuthState {
     this.error,
   });
 
-  bool get isAuthenticated => status == AuthStatus.authenticated && user != null;
+  bool get isAuthenticated =>
+      status == AuthStatus.authenticated && user != null;
   bool get isLoading => status == AuthStatus.loading;
 
   AuthState copyWith({
@@ -57,7 +59,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Called once at app startup to silently check for an existing session.
   Future<void> restoreSession() async {
-    state = state.copyWith(status: AuthStatus.loading);
+    final cachedUser = await _authService.cachedUserOrNull();
+    if (cachedUser != null) {
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: cachedUser,
+      );
+    } else {
+      state = state.copyWith(status: AuthStatus.loading);
+    }
 
     final user = await _authService.restoreSession();
     if (user != null) {
@@ -96,11 +106,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (success) {
       // Clear local data so guest mode starts fresh (0 counts)
       await LocalDataRepository.instance.clearAllSyncableData();
+      PaintingBinding.instance.imageCache.clear();
       state = const AuthState(status: AuthStatus.unauthenticated);
     } else {
       // Even if server-side sign-out fails, clear local state
       // so the user isn't stuck in a broken state.
       await LocalDataRepository.instance.clearAllSyncableData();
+      PaintingBinding.instance.imageCache.clear();
       state = const AuthState(status: AuthStatus.unauthenticated);
     }
   }

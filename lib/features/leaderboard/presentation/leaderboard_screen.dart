@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/colors.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/leaderboard_provider.dart';
@@ -37,18 +38,21 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
       ),
-      body: !authState.isAuthenticated
-          ? _buildAuthGate()
-          : state.isLoading && state.topUsers.isEmpty
-              ? _buildShimmer()
-              : state.error != null && state.topUsers.isEmpty
-                  ? _buildError()
-                  : RefreshIndicator(
-                      color: AppColors.primary,
-                      backgroundColor: AppColors.cardBackground,
-                      onRefresh: () => ref.read(leaderboardProvider.notifier).load(),
-                      child: _buildContent(state),
-                    ),
+      body: authState.status == AuthStatus.unknown || authState.isLoading
+          ? _buildShimmer()
+          : !authState.isAuthenticated
+              ? _buildAuthGate()
+              : state.isLoading && state.topUsers.isEmpty
+                  ? _buildShimmer()
+                  : state.error != null && state.topUsers.isEmpty
+                      ? _buildError()
+                      : RefreshIndicator(
+                          color: AppColors.primary,
+                          backgroundColor: AppColors.cardBackground,
+                          onRefresh: () =>
+                              ref.read(leaderboardProvider.notifier).load(),
+                          child: _buildContent(state),
+                        ),
     );
   }
 
@@ -85,11 +89,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton.icon(
-                onPressed: () => ref.read(authProvider.notifier).signInWithGoogle(),
+                onPressed: () =>
+                    ref.read(authProvider.notifier).signInWithGoogle(),
                 icon: const Icon(Icons.login),
                 label: Text(
                   'Sign in with Google',
-                  style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.outfit(
+                      fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -148,8 +154,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           onSelect: (_) {},
         ),
         const SizedBox(height: 24),
-        for (int i = 0; i < 5; i++)
-          _ShimmerRow(index: i),
+        for (int i = 0; i < 5; i++) _ShimmerRow(index: i),
       ],
     );
   }
@@ -163,28 +168,23 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       children: [
         _CategoryBar(
           selected: category,
-          onSelect: (cat) => ref.read(leaderboardProvider.notifier).setCategory(cat),
+          onSelect: (cat) =>
+              ref.read(leaderboardProvider.notifier).setCategory(cat),
         ),
         Expanded(
           child: topUsers.isEmpty
-              ? Center(
-                  child: Text(
-                    'No users yet. Start chanting!',
-                    style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                )
+              ? _EmptyState(category: category, currentUser: currentUser)
               : ListView(
                   padding: const EdgeInsets.only(bottom: 100),
                   children: [
                     if (topUsers.length >= 3)
-                      _Podium(topUsers: topUsers.take(3).toList(), category: category),
+                      _Podium(
+                          topUsers: topUsers.take(3).toList(),
+                          category: category),
                     if (topUsers.length > 3) ...[
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
-                        child: _SectionHeader(),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                        child: _SectionHeader(category: category),
                       ),
                       ...topUsers.skip(3).map((user) => _RankRow(
                             user: user,
@@ -193,9 +193,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           )),
                     ],
                     if (topUsers.length < 3) ...[
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
-                        child: _SectionHeader(),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                        child: _SectionHeader(category: category),
                       ),
                       ...topUsers.map((user) => _RankRow(
                             user: user,
@@ -259,10 +259,87 @@ class _ShimmerRow extends StatelessWidget {
         ],
       ),
     ).animate().shimmer(
-      duration: const Duration(milliseconds: 1500),
-      delay: (index * 100).ms,
-      color: AppColors.primary.withValues(alpha: 0.05),
-    );
+          duration: const Duration(milliseconds: 1500),
+          delay: (index * 100).ms,
+          color: AppColors.primary.withValues(alpha: 0.05),
+        );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final LeaderboardCategory category;
+  final LeaderboardEntry? currentUser;
+
+  const _EmptyState({required this.category, required this.currentUser});
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = _remainingCountsToQualify(category, currentUser);
+    final title = switch (category) {
+      LeaderboardCategory.totalCounts => 'Enter the all-time board',
+      LeaderboardCategory.todayCounts => 'Enter today\'s leaderboard',
+      LeaderboardCategory.currentStreak => 'Start your streak',
+    };
+    final message = switch (category) {
+      LeaderboardCategory.totalCounts => remaining > 0
+          ? 'Complete 3 malas to enter. $remaining counts left.'
+          : 'You qualify. Pull down to refresh the leaderboard.',
+      LeaderboardCategory.todayCounts => remaining > 0
+          ? 'Complete 3 malas today to enter. $remaining counts left.'
+          : 'You qualify for today. Pull down to refresh.',
+      LeaderboardCategory.currentStreak =>
+        currentUser != null && currentUser!.currentStreak > 0
+            ? 'Your streak qualifies. Pull down to refresh.'
+            : 'Complete 3 malas in a day to begin your streak.',
+    };
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.22),
+                    AppColors.primary.withValues(alpha: 0.04),
+                  ],
+                ),
+                border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.18)),
+              ),
+              child: Icon(_categoryIcon(category),
+                  size: 34, color: AppColors.primary),
+            ),
+            const SizedBox(height: 22),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                height: 1.45,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(duration: 250.ms).slideY(begin: 0.04, end: 0);
   }
 }
 
@@ -282,7 +359,8 @@ class _CategoryBar extends StatelessWidget {
           final icon = switch (cat) {
             LeaderboardCategory.totalCounts => Icons.history_rounded,
             LeaderboardCategory.todayCounts => Icons.today_rounded,
-            LeaderboardCategory.currentStreak => Icons.local_fire_department_rounded,
+            LeaderboardCategory.currentStreak =>
+              Icons.local_fire_department_rounded,
           };
           return Expanded(
             child: Padding(
@@ -298,7 +376,8 @@ class _CategoryBar extends StatelessWidget {
                         : AppColors.cardBackground,
                     borderRadius: BorderRadius.circular(10),
                     border: isSelected
-                        ? Border.all(color: AppColors.primary.withValues(alpha: 0.4))
+                        ? Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.4))
                         : null,
                   ),
                   child: Row(
@@ -307,7 +386,9 @@ class _CategoryBar extends StatelessWidget {
                       Icon(
                         icon,
                         size: 14,
-                        color: isSelected ? AppColors.primary : AppColors.textMuted,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textMuted,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -315,7 +396,9 @@ class _CategoryBar extends StatelessWidget {
                         style: GoogleFonts.outfit(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: isSelected ? AppColors.primary : AppColors.textMuted,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -339,13 +422,20 @@ class _Podium extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = <_PodiumEntry>[
-      _PodiumEntry(rank: 1, user: topUsers[0], height: 150, color: AppColors.primary),
+      _PodiumEntry(
+          rank: 1, user: topUsers[0], height: 150, color: AppColors.primary),
       if (topUsers.length > 1)
-        _PodiumEntry(rank: 2, user: topUsers[1], height: 110,
-            color: AppColors.textSecondary.withValues(alpha: 0.6)),
+        _PodiumEntry(
+            rank: 2,
+            user: topUsers[1],
+            height: 110,
+            color: const Color(0xFFC0C4CC)),
       if (topUsers.length > 2)
-        _PodiumEntry(rank: 3, user: topUsers[2], height: 80,
-            color: AppColors.textMuted.withValues(alpha: 0.5)),
+        _PodiumEntry(
+            rank: 3,
+            user: topUsers[2],
+            height: 80,
+            color: const Color(0xFFCD7F55)),
     ];
 
     return Container(
@@ -354,14 +444,16 @@ class _Podium extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (entries.length > 1) _PodiumCard(entry: entries[1], category: category),
+          if (entries.length > 1)
+            _PodiumCard(entry: entries[1], category: category),
           const SizedBox(width: 12),
           _PodiumCard(entry: entries[0], category: category),
           const SizedBox(width: 12),
-          if (entries.length > 2) _PodiumCard(entry: entries[2], category: category),
+          if (entries.length > 2)
+            _PodiumCard(entry: entries[2], category: category),
         ],
       ),
-    );
+    ).animate().fadeIn(duration: 320.ms).slideY(begin: 0.04, end: 0);
   }
 }
 
@@ -394,7 +486,9 @@ class _PodiumCard extends StatelessWidget {
           avatarUrl: entry.user.avatarUrl,
           initial: entry.user.initial,
           size: isFirst ? 52 : 40,
-          badge: isFirst,
+          badge: true,
+          badgeColor: entry.color,
+          badgeIcon: entry.rank == 1 ? Icons.emoji_events : Icons.military_tech,
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -441,24 +535,38 @@ class _PodiumCard extends StatelessWidget {
               end: Alignment.topCenter,
               colors: [
                 entry.color.withValues(alpha: 0.3),
+                entry.color.withValues(alpha: 0.16),
                 entry.color.withValues(alpha: 0.08),
               ],
             ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            border: Border.all(color: entry.color.withValues(alpha: 0.18)),
           ),
           child: Center(
-            child: Text(
-              '#${entry.rank}',
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: entry.color,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.background.withValues(alpha: 0.36),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: entry.color.withValues(alpha: 0.28)),
+              ),
+              child: Text(
+                '#${entry.rank}',
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: entry.color,
+                ),
               ),
             ),
           ),
         ),
       ],
-    );
+    ).animate().fadeIn(duration: 280.ms, delay: (entry.rank * 70).ms).scale(
+          begin: const Offset(0.94, 0.94),
+          end: const Offset(1, 1),
+          curve: Curves.easeOutCubic,
+        );
   }
 }
 
@@ -467,12 +575,16 @@ class _AvatarWidget extends StatelessWidget {
   final String initial;
   final double size;
   final bool badge;
+  final Color? badgeColor;
+  final IconData? badgeIcon;
 
   const _AvatarWidget({
     required this.avatarUrl,
     required this.initial,
     required this.size,
     this.badge = false,
+    this.badgeColor,
+    this.badgeIcon,
   });
 
   @override
@@ -485,13 +597,16 @@ class _AvatarWidget extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: badge
-                ? Border.all(color: AppColors.primary, width: 2)
+                ? Border.all(color: badgeColor ?? AppColors.primary, width: 2)
                 : null,
             boxShadow: badge
-                ? [BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                  )]
+                ? [
+                    BoxShadow(
+                      color: (badgeColor ?? AppColors.primary)
+                          .withValues(alpha: 0.3),
+                      blurRadius: 10,
+                    )
+                  ]
                 : null,
           ),
           child: ClipOval(
@@ -504,7 +619,7 @@ class _AvatarWidget extends StatelessWidget {
                     errorBuilder: (_, __, ___) => _defaultAvatar(size),
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
-                      return const SizedBox.shrink();
+                      return _defaultAvatar(size);
                     },
                   )
                 : _defaultAvatar(size),
@@ -519,9 +634,13 @@ class _AvatarWidget extends StatelessWidget {
               height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primary,
+                color: badgeColor ?? AppColors.primary,
               ),
-              child: Icon(Icons.emoji_events, size: 12, color: AppColors.background),
+              child: Icon(
+                badgeIcon ?? Icons.emoji_events,
+                size: 12,
+                color: AppColors.background,
+              ),
             ),
           ),
       ],
@@ -551,7 +670,9 @@ class _AvatarWidget extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader();
+  final LeaderboardCategory category;
+
+  const _SectionHeader({required this.category});
 
   @override
   Widget build(BuildContext context) {
@@ -580,7 +701,7 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
         Text(
-          'Count',
+          _metricLabel(category),
           style: GoogleFonts.outfit(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -614,6 +735,9 @@ class _RankRow extends StatelessWidget {
               ? AppColors.primary.withValues(alpha: 0.08)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
+          border: isCurrentUser
+              ? Border.all(color: AppColors.primary.withValues(alpha: 0.26))
+              : null,
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -626,7 +750,9 @@ class _RankRow extends StatelessWidget {
                   style: GoogleFonts.outfit(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: user.rank <= 3 ? AppColors.primary : AppColors.textMuted,
+                    color: user.rank <= 3
+                        ? AppColors.primary
+                        : AppColors.textMuted,
                   ),
                 ),
               ),
@@ -644,7 +770,8 @@ class _RankRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.outfit(
                     fontSize: 14,
-                    fontWeight: isCurrentUser ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight:
+                        isCurrentUser ? FontWeight.w700 : FontWeight.w500,
                     color: AppColors.textPrimary,
                   ),
                 ),
@@ -652,7 +779,8 @@ class _RankRow extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (category == LeaderboardCategory.currentStreak && user.currentStreak > 0)
+                  if (category == LeaderboardCategory.currentStreak &&
+                      user.currentStreak > 0)
                     Padding(
                       padding: const EdgeInsets.only(right: 4),
                       child: Icon(Icons.local_fire_department_rounded,
@@ -663,7 +791,9 @@ class _RankRow extends StatelessWidget {
                     style: GoogleFonts.outfit(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: isCurrentUser ? AppColors.primary : AppColors.textSecondary,
+                      color: isCurrentUser
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -671,7 +801,8 @@ class _RankRow extends StatelessWidget {
               if (isCurrentUser)
                 Container(
                   margin: const EdgeInsets.only(left: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
@@ -749,7 +880,8 @@ class _CurrentUserBanner extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (category == LeaderboardCategory.currentStreak && user.currentStreak > 0)
+                if (category == LeaderboardCategory.currentStreak &&
+                    user.currentStreak > 0)
                   Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(Icons.local_fire_department_rounded,
@@ -791,4 +923,35 @@ String _formatMetric(LeaderboardEntry user, LeaderboardCategory category) {
   return count.toString();
 }
 
+String _metricLabel(LeaderboardCategory category) {
+  return switch (category) {
+    LeaderboardCategory.totalCounts => 'Counts',
+    LeaderboardCategory.todayCounts => 'Today',
+    LeaderboardCategory.currentStreak => 'Days',
+  };
+}
 
+IconData _categoryIcon(LeaderboardCategory category) {
+  return switch (category) {
+    LeaderboardCategory.totalCounts => Icons.emoji_events_rounded,
+    LeaderboardCategory.todayCounts => Icons.today_rounded,
+    LeaderboardCategory.currentStreak => Icons.local_fire_department_rounded,
+  };
+}
+
+int _remainingCountsToQualify(
+  LeaderboardCategory category,
+  LeaderboardEntry? currentUser,
+) {
+  if (currentUser == null || category == LeaderboardCategory.currentStreak) {
+    return 0;
+  }
+
+  final count = switch (category) {
+    LeaderboardCategory.totalCounts => currentUser.totalCounts,
+    LeaderboardCategory.todayCounts => currentUser.todayCounts,
+    LeaderboardCategory.currentStreak => currentUser.currentStreak,
+  };
+  final minCounts = kMalaSize * kMinStreakMalas;
+  return (minCounts - count).clamp(0, minCounts).toInt();
+}

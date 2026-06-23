@@ -93,7 +93,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: 'Use volume keys to count',
                 switchValue: settings.volumeRockerEnabled,
                 onSwitchChanged: (value) {
-                  ref.read(settingsProvider.notifier).setVolumeRockerEnabled(value);
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setVolumeRockerEnabled(value);
                 },
               ),
               SettingsTile(
@@ -115,11 +117,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 12),
 
-          // === APPEARANCE ===
+          // === COUNTER SETUP ===
           _buildSettingsGroup(
             context,
             icon: Icons.palette_outlined,
-            title: 'Appearance',
+            title: 'Counter Setup',
             children: [
               SettingsTile(
                 icon: Icons.view_comfortable,
@@ -127,26 +129,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: settings.interfaceMode == InterfaceMode.malaWise
                     ? 'Mala-wise (108 beads focus)'
                     : 'Count-wise (total focus)',
-                onTap: () => _showInterfaceModeDialog(context, settings.interfaceMode),
+                onTap: () =>
+                    _showInterfaceModeDialog(context, settings.interfaceMode),
                 trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
               ),
               SettingsTile(
                 icon: Icons.title,
                 title: 'Custom Title',
-                subtitle: settings.customTitle.isEmpty ? 'Set a custom title' : settings.customTitle,
-                onTap: () => _showCustomTitleDialog(context, settings.customTitle),
+                subtitle: settings.customTitle.isEmpty
+                    ? 'Set a custom title'
+                    : settings.customTitle,
+                onTap: () =>
+                    _showCustomTitleDialog(context, settings.customTitle),
                 trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
               ),
               SettingsTile(
                 icon: Icons.palette,
                 title: 'Theme Color',
-                subtitle: '${settings.selectedTheme.emoji} ${settings.selectedTheme.displayName}',
-                onTap: () => _showThemePickerDialog(context, settings.selectedTheme),
+                subtitle:
+                    '${settings.selectedTheme.emoji} ${settings.selectedTheme.displayName}',
+                onTap: () =>
+                    _showThemePickerDialog(context, settings.selectedTheme),
                 trailing: Container(
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: ThemeColorPalette.forTheme(settings.selectedTheme).primary,
+                    color: ThemeColorPalette.forTheme(settings.selectedTheme)
+                        .primary,
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.textMuted, width: 1),
                   ),
@@ -155,11 +164,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               SettingsTile(
                 icon: Icons.image,
                 title: 'Center Image',
-                subtitle: settings.centerImagePath != null 
-                    ? 'Deity image set ✓' 
+                subtitle: settings.centerImagePath != null
+                    ? 'Deity image set ✓'
                     : 'Add god/guru image in mala',
-                onTap: () => _showCenterImageDialog(context, settings.centerImagePath),
-                trailing: settings.centerImagePath != null 
+                onTap: () =>
+                    _showCenterImageDialog(context, settings.centerImagePath),
+                trailing: settings.centerImagePath != null
                     ? Container(
                         width: 32,
                         height: 32,
@@ -169,22 +179,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             image: FileImage(File(settings.centerImagePath!)),
                             fit: BoxFit.cover,
                           ),
-                          border: Border.all(color: AppColors.primary, width: 2),
+                          border:
+                              Border.all(color: AppColors.primary, width: 2),
                         ),
                       )
                     : Icon(Icons.chevron_right, color: AppColors.textMuted),
               ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-
-          // === GOALS ===
-          _buildSettingsGroup(
-            context,
-            icon: Icons.flag_outlined,
-            title: 'Goals',
-            children: [
               SettingsTile(
                 icon: Icons.category,
                 title: 'Goal Type',
@@ -218,7 +218,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: 'Show weekly summary on app open',
                 switchValue: settings.weeklyReportEnabled,
                 onSwitchChanged: (value) {
-                  ref.read(settingsProvider.notifier).setWeeklyReportEnabled(value);
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setWeeklyReportEnabled(value);
                 },
               ),
               SettingsTile(
@@ -227,7 +229,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: 'Show monthly summary on app open',
                 switchValue: settings.monthlyReportEnabled,
                 onSwitchChanged: (value) {
-                  ref.read(settingsProvider.notifier).setMonthlyReportEnabled(value);
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setMonthlyReportEnabled(value);
                 },
               ),
               SettingsTile(
@@ -236,18 +240,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: 'Remind when yesterday\'s goal was missed',
                 switchValue: settings.goalMissNotificationEnabled,
                 onSwitchChanged: (value) {
-                  ref.read(settingsProvider.notifier).setGoalMissNotificationEnabled(value);
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setGoalMissNotificationEnabled(value);
                 },
               ),
               SettingsTile(
                 icon: Icons.alarm,
                 title: 'Practice Reminders',
-                subtitle: settings.reminderEnabled 
+                subtitle: settings.reminderEnabled
                     ? 'Every ${settings.reminderIntervalMinutes} min'
                     : 'Off',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ReminderSetupScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const ReminderSetupScreen()),
                 ),
                 trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
               ),
@@ -256,66 +263,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 16),
 
-          // === RATE US (Prominent standalone) ===
-          Material(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              onTap: () => FeedbackService.instance.openStoreForRating(),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.star_rounded, color: AppColors.primary, size: 28),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Enjoying Smart Naam Jap?',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Rate us on Play Store ⭐',
-                            style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right, color: AppColors.primary),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // === ABOUT ===
+          // === ABOUT & FEEDBACK ===
           _buildSettingsGroup(
             context,
             icon: Icons.info_outline,
-            title: 'About',
+            title: 'About & Feedback',
             children: [
+              SettingsTile(
+                icon: Icons.star_rounded,
+                title: 'Rate Smart Naam Jap',
+                subtitle: 'Share feedback on Play Store',
+                onTap: () => FeedbackService.instance.openStoreForRating(),
+                trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
+              ),
               SettingsTile(
                 icon: Icons.info_outline,
                 title: 'Smart Naam Jap',
-                subtitle: _appVersion.isNotEmpty ? 'Version $_appVersion' : 'Loading...',
+                subtitle: _appVersion.isNotEmpty
+                    ? 'Version $_appVersion'
+                    : 'Loading...',
               ),
               SettingsTile(
                 icon: Icons.code,
@@ -330,6 +296,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
+
   Widget _buildSettingsGroup(
     BuildContext context, {
     required IconData icon,
@@ -354,9 +321,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
                 ),
               ],
             ),
@@ -371,11 +338,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   String _getGoalSubtitle(settings) {
     if (settings.goalType == GoalType.malas) {
-      return settings.dailyGoal > 0 
+      return settings.dailyGoal > 0
           ? '${settings.dailyGoal} malas per day'
           : 'Not set';
     } else {
-      return settings.dailyGoalCount > 0 
+      return settings.dailyGoalCount > 0
           ? '${_formatNumber(settings.dailyGoalCount)} chants per day'
           : 'Not set';
     }
@@ -384,28 +351,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _formatNumber(int number) {
     if (number >= 1000) {
       return number.toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (Match m) => '${m[1]},',
-      );
+            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+            (Match m) => '${m[1]},',
+          );
     }
     return number.toString();
   }
 
-  void _showInterfaceModeDialog(BuildContext context, InterfaceMode currentMode) {
+  void _showInterfaceModeDialog(
+      BuildContext context, InterfaceMode currentMode) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Display Mode', style: Theme.of(context).textTheme.headlineMedium),
+        title: Text('Display Mode',
+            style: Theme.of(context).textTheme.headlineMedium),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Choose how the counter screen displays your progress',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textMuted,
-              ),
+                    color: AppColors.textMuted,
+                  ),
             ),
             const SizedBox(height: 20),
             _buildModeOption(
@@ -415,7 +384,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               icon: Icons.all_inclusive,
               isSelected: currentMode == InterfaceMode.malaWise,
               onTap: () {
-                ref.read(settingsProvider.notifier).setInterfaceMode(InterfaceMode.malaWise);
+                ref
+                    .read(settingsProvider.notifier)
+                    .setInterfaceMode(InterfaceMode.malaWise);
                 Navigator.pop(context);
               },
             ),
@@ -427,7 +398,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               icon: Icons.numbers,
               isSelected: currentMode == InterfaceMode.countWise,
               onTap: () {
-                ref.read(settingsProvider.notifier).setInterfaceMode(InterfaceMode.countWise);
+                ref
+                    .read(settingsProvider.notifier)
+                    .setInterfaceMode(InterfaceMode.countWise);
                 Navigator.pop(context);
               },
             ),
@@ -439,21 +412,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showCustomTitleDialog(BuildContext context, String currentTitle) {
     final controller = TextEditingController(text: currentTitle);
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Custom Title', style: Theme.of(context).textTheme.headlineMedium),
+        title: Text('Custom Title',
+            style: Theme.of(context).textTheme.headlineMedium),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Set a custom title for the counter screen',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textMuted,
-              ),
+                    color: AppColors.textMuted,
+                  ),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -497,21 +471,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showThemePickerDialog(BuildContext context, AppThemeColor currentTheme) {
+  void _showThemePickerDialog(
+      BuildContext context, AppThemeColor currentTheme) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Theme Color', style: Theme.of(context).textTheme.headlineMedium),
+        title: Text('Theme Color',
+            style: Theme.of(context).textTheme.headlineMedium),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Choose your preferred accent color',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textMuted,
-              ),
+                    color: AppColors.textMuted,
+                  ),
             ),
             const SizedBox(height: 20),
             // Theme grid
@@ -522,7 +498,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: AppThemeColor.values.map((theme) {
                 final isSelected = theme == currentTheme;
                 final palette = ThemeColorPalette.forTheme(theme);
-                
+
                 return GestureDetector(
                   onTap: () {
                     ref.read(settingsProvider.notifier).setTheme(theme);
@@ -533,14 +509,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     width: 72,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: isSelected 
+                      color: isSelected
                           ? palette.primary.withValues(alpha: 0.2)
                           : AppColors.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected 
-                            ? palette.primary
-                            : Colors.transparent,
+                        color:
+                            isSelected ? palette.primary : Colors.transparent,
                         width: 2,
                       ),
                     ),
@@ -565,8 +540,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           child: isSelected
                               ? Icon(
                                   Icons.check,
-                                  color: theme == AppThemeColor.pureWhite 
-                                      ? Colors.black 
+                                  color: theme == AppThemeColor.pureWhite
+                                      ? Colors.black
                                       : Colors.white,
                                   size: 20,
                                 )
@@ -583,11 +558,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           theme.displayName.split(' ').last,
                           style: TextStyle(
                             fontSize: 10,
-                            color: isSelected 
-                                ? palette.primary 
+                            color: isSelected
+                                ? palette.primary
                                 : AppColors.textSecondary,
-                            fontWeight: isSelected 
-                                ? FontWeight.w600 
+                            fontWeight: isSelected
+                                ? FontWeight.w600
                                 : FontWeight.normal,
                           ),
                           textAlign: TextAlign.center,
@@ -610,15 +585,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Center Image', style: Theme.of(context).textTheme.headlineMedium),
+        title: Text('Center Image',
+            style: Theme.of(context).textTheme.headlineMedium),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Add an image of your favorite deity/guru to display inside the mala circle',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textMuted,
-              ),
+                    color: AppColors.textMuted,
+                  ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -671,11 +647,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     maxHeight: 1024,
                     imageQuality: 95,
                   );
-                  
+
                   if (pickedFile != null) {
                     // Copy to app documents directory for persistence
                     final appDir = await getApplicationDocumentsDirectory();
-                    
+
                     // Delete old image if it exists
                     if (currentImagePath != null) {
                       final oldFile = File(currentImagePath);
@@ -683,18 +659,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         await oldFile.delete();
                       }
                     }
-                    
+
                     // Use unique filename with timestamp to avoid caching issues
                     final timestamp = DateTime.now().millisecondsSinceEpoch;
                     final fileName = 'deity_image_$timestamp.jpg';
                     final savedPath = '${appDir.path}/$fileName';
-                    
+
                     // Copy the picked image to permanent location
                     await File(pickedFile.path).copy(savedPath);
-                    
+
                     // Save path to settings
-                    ref.read(settingsProvider.notifier).setCenterImage(savedPath);
-                    
+                    ref
+                        .read(settingsProvider.notifier)
+                        .setCenterImage(savedPath);
+
                     if (context.mounted) {
                       Navigator.pop(context);
                     }
@@ -756,8 +734,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: isSelected 
-          ? AppColors.primary.withValues(alpha: 0.15) 
+      color: isSelected
+          ? AppColors.primary.withValues(alpha: 0.15)
           : AppColors.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
@@ -768,15 +746,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected 
-                  ? AppColors.primary.withValues(alpha: 0.5) 
+              color: isSelected
+                  ? AppColors.primary.withValues(alpha: 0.5)
                   : Colors.transparent,
               width: 2,
             ),
           ),
           child: Row(
             children: [
-              Icon(icon, color: isSelected ? AppColors.primary : AppColors.textMuted),
+              Icon(icon,
+                  color: isSelected ? AppColors.primary : AppColors.textMuted),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -786,7 +765,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textPrimary,
                       ),
                     ),
                     Text(
@@ -814,15 +795,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Goal Type', style: Theme.of(context).textTheme.headlineMedium),
+        title: Text('Goal Type',
+            style: Theme.of(context).textTheme.headlineMedium),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Choose how to track your daily goal',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textMuted,
-              ),
+                    color: AppColors.textMuted,
+                  ),
             ),
             const SizedBox(height: 20),
             _buildModeOption(
@@ -844,7 +826,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               icon: Icons.numbers,
               isSelected: currentType == GoalType.counts,
               onTap: () {
-                ref.read(settingsProvider.notifier).setGoalType(GoalType.counts);
+                ref
+                    .read(settingsProvider.notifier)
+                    .setGoalType(GoalType.counts);
                 Navigator.pop(context);
               },
             ),
@@ -864,14 +848,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showMalaGoalDialog(BuildContext context, int currentGoal) {
     int selectedGoal = currentGoal;
-    
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: AppColors.cardBackground,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Daily Mala Goal', style: Theme.of(context).textTheme.headlineMedium),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Daily Mala Goal',
+              style: Theme.of(context).textTheme.headlineMedium),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -901,9 +887,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Text(
                       selectedGoal == 0 ? 'Off' : '$selectedGoal',
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: AppColors.primary,
-                      ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: AppColors.primary,
+                              ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -915,7 +902,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text('malas per day', style: Theme.of(context).textTheme.labelMedium),
+              Text('malas per day',
+                  style: Theme.of(context).textTheme.labelMedium),
               if (selectedGoal > 0)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -929,7 +917,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+              child:
+                  Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -947,14 +936,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showCountGoalDialog(BuildContext context, int currentGoal) {
     int selectedGoal = currentGoal;
     final presets = [108, 216, 540, 1080, 10800];
-    
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: AppColors.cardBackground,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Daily Count Goal', style: Theme.of(context).textTheme.headlineMedium),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Daily Count Goal',
+              style: Theme.of(context).textTheme.headlineMedium),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -969,11 +960,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 runSpacing: 8,
                 alignment: WrapAlignment.center,
                 children: [
-                  _buildPresetChip(context, 0, 'Off', selectedGoal, (v) => setState(() => selectedGoal = v)),
+                  _buildPresetChip(context, 0, 'Off', selectedGoal,
+                      (v) => setState(() => selectedGoal = v)),
                   ...presets.map((p) => _buildPresetChip(
-                    context, p, _formatNumber(p), selectedGoal, 
-                    (v) => setState(() => selectedGoal = v),
-                  )),
+                        context,
+                        p,
+                        _formatNumber(p),
+                        selectedGoal,
+                        (v) => setState(() => selectedGoal = v),
+                      )),
                 ],
               ),
               const SizedBox(height: 20),
@@ -983,7 +978,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 children: [
                   IconButton(
                     onPressed: selectedGoal > 0
-                        ? () => setState(() => selectedGoal = (selectedGoal - 108).clamp(0, 100000))
+                        ? () => setState(() => selectedGoal =
+                            (selectedGoal - 108).clamp(0, 100000))
                         : null,
                     icon: const Icon(Icons.remove_circle_outline),
                     color: AppColors.primary,
@@ -998,21 +994,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Text(
                       selectedGoal == 0 ? 'Off' : _formatNumber(selectedGoal),
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: AppColors.primary,
-                        fontSize: 22,
-                      ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: AppColors.primary,
+                                fontSize: 22,
+                              ),
                     ),
                   ),
                   IconButton(
-                    onPressed: () => setState(() => selectedGoal = selectedGoal + 108),
+                    onPressed: () =>
+                        setState(() => selectedGoal = selectedGoal + 108),
                     icon: const Icon(Icons.add_circle_outline),
                     color: AppColors.primary,
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              Text('chants per day', style: Theme.of(context).textTheme.labelMedium),
+              Text('chants per day',
+                  style: Theme.of(context).textTheme.labelMedium),
               if (selectedGoal > 0)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -1026,11 +1025,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+              child:
+                  Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
             ),
             ElevatedButton(
               onPressed: () {
-                ref.read(settingsProvider.notifier).setDailyGoalCount(selectedGoal);
+                ref
+                    .read(settingsProvider.notifier)
+                    .setDailyGoalCount(selectedGoal);
                 Navigator.pop(context);
               },
               child: const Text('Save'),
@@ -1041,7 +1043,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildPresetChip(BuildContext context, int value, String label, int selectedValue, Function(int) onTap) {
+  Widget _buildPresetChip(BuildContext context, int value, String label,
+      int selectedValue, Function(int) onTap) {
     final isSelected = value == selectedValue;
     return Material(
       color: isSelected ? AppColors.primary : AppColors.surface,
@@ -1054,7 +1057,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? AppColors.background : AppColors.textSecondary,
+              color:
+                  isSelected ? AppColors.background : AppColors.textSecondary,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
           ),

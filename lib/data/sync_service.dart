@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:appwrite/appwrite.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/app_logger.dart';
+import '../features/auth/auth_service.dart';
 import '../features/auth/domain/app_user.dart';
 import '../features/insights/domain/daily_stats.dart';
 import 'cloud_data_repository.dart';
@@ -65,6 +67,7 @@ class SyncService {
 
   /// Guards against concurrent syncs.
   bool _isSyncing = false;
+  Timer? _idleResetTimer;
 
   /// Tracks if the app has successfully synced from the cloud at least once
   /// during this app session. Used to prevent local data from overwriting
@@ -81,6 +84,24 @@ class SyncService {
   /// The last sync result.
   SyncResult _lastResult = SyncResult.idle();
   SyncResult get lastResult => _lastResult;
+
+  /// Quick reachability check against the Appwrite backend.
+  ///
+  /// Makes a lightweight authenticated call with a short timeout. Returns
+  /// `false` if the cloud is unreachable (no internet, DNS failure, socket
+  /// hang, expired session, etc.) so the caller can report a sync failure
+  /// instead of hanging or silently succeeding.
+  Future<bool> _isCloudReachable() async {
+    try {
+      await Account(AuthService.instance.client)
+          .get()
+          .timeout(const Duration(seconds: 10));
+      return true;
+    } catch (e) {
+      AppLogger.info(_tag, 'Cloud unreachable, skipping sync: $e');
+      return false;
+    }
+  }
 
   /// Run a full bidirectional sync.
   ///
@@ -101,6 +122,19 @@ class SyncService {
     _emit(const SyncResult(status: SyncStatus.syncing));
 
     try {
+      // Verify cloud reachability before doing any work.
+      //
+      // CloudDataRepository silently swallows network errors (returning empty
+      // defaults), so without this probe an offline sync would either hang
+      // indefinitely on the unresponsive socket or falsely report success.
+      // The probe makes a lightweight authenticated call with a short timeout:
+      // if it fails or times out we surface a real failure instead.
+      if (!await _isCloudReachable()) {
+        final result = SyncResult.error('No internet connection');
+        _emit(result);
+        return result;
+      }
+
       final local = LocalDataRepository.instance;
 
       // ── 1. Sync daily stats (per-day max-wins merge) ──────────
@@ -138,15 +172,28 @@ class SyncService {
   }
 
   void _emit(SyncResult result) {
+    _idleResetTimer?.cancel();
     _lastResult = result;
     _statusController.add(result);
+
+    if (result.status == SyncStatus.success ||
+        result.status == SyncStatus.error) {
+      _idleResetTimer = Timer(const Duration(seconds: 3), () {
+        if (!_isSyncing) {
+          _lastResult = SyncResult.idle();
+          _statusController.add(_lastResult);
+        }
+      });
+    }
   }
 
   /// Dispose resources. Call when the user signs out.
   void reset() {
+    _idleResetTimer?.cancel();
     _lastResult = SyncResult.idle();
     _isSyncing = false;
     _hasCompletedInitialSync = false;
+    _statusController.add(_lastResult);
   }
 
   // ── Daily Stats Merge ──────────────────────────────────────────
