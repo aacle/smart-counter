@@ -39,6 +39,21 @@ class AuthService {
     return _client;
   }
 
+  /// Called when the server invalidates the current session (401 response).
+  /// Typically because the user logged in on another device with max sessions
+  /// set to 1 in Appwrite Console. Set by [AuthNotifier] so it can transition
+  /// the UI to the unauthenticated state.
+  void Function()? onSessionExpired;
+
+  /// Notify the app that the session has expired or been revoked server-side.
+  /// Clears cached auth state and calls [onSessionExpired] so the UI reacts.
+  void notifySessionExpired() {
+    AppLogger.info(_tag, 'Session expired — clearing auth state');
+    _clearAuthUserCache();
+    _clearAvatarCache(null);
+    onSessionExpired?.call();
+  }
+
   // ── Initialization ──────────────────────────────────────────────
 
   /// Must be called once at app startup (in main.dart).

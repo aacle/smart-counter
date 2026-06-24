@@ -122,3 +122,9 @@ smartnaamjap_testdata_*.json
 # Local helper scripts
 build_app.sh
 ship.sh
+
+# Command Code agent artifacts
+.commandcode/
+
+# Project planning docs
+/docs/plans/

@@ -37,6 +37,7 @@ class StorageKeys {
   static const cachedAuthUser = 'cached_auth_user';
   static const hasSeenMigrationPopup = 'has_seen_migration_popup';
   static const hasSeenOnboarding = 'has_seen_onboarding';
+  static const lastUserId = 'last_user_id';
 
   // ── DEPRECATED — scheduled for removal ──
   // These are redundant with daily_stats aggregation.

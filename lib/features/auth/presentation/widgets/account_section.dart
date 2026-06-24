@@ -244,7 +244,50 @@ class AccountSection extends ConsumerWidget {
   }
 
   Future<void> _handleSignIn(BuildContext context, WidgetRef ref) async {
-    await ref.read(authProvider.notifier).signInWithGoogle();
+    final notifier = ref.read(authProvider.notifier);
+
+    // If local data from a previous user is detected during sign-in,
+    // this callback fires and shows a confirmation dialog. The user
+    // decides whether to wipe or keep the stale data.
+    notifier.onConfirmCrossUserDataWipe = () async {
+      final shouldWipe = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text('Previous User Data Found'),
+          content: Text(
+            'This device has saved data from a different Google account. '
+            'To prevent leaderboard errors, the previous data must be '
+            'cleared before signing in. What would you like to do?',
+            style: TextStyle(color: AppColors.textMuted, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: AppColors.textMuted),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.background,
+              ),
+              child: const Text('Clear & Sign In'),
+            ),
+          ],
+        ),
+      );
+      return shouldWipe ?? false;
+    };
+
+    await notifier.signInWithGoogle();
   }
 
   void _confirmSignOut(BuildContext context, WidgetRef ref) {

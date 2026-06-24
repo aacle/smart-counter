@@ -262,6 +262,29 @@ class LocalDataRepository implements DataRepository {
     }
   }
 
+  // ── User ownership ──
+
+  /// The user ID whose data is currently in local storage.
+  /// `null` means the device was used in guest mode and hasn't claimed a user.
+  Future<String?> loadLastUserId() async {
+    try {
+      final prefs = await _sp;
+      return prefs.getString(StorageKeys.lastUserId);
+    } catch (e, st) {
+      AppLogger.error('LocalDataRepository', 'loadLastUserId failed', e, st);
+      return null;
+    }
+  }
+
+  Future<void> saveLastUserId(String userId) async {
+    try {
+      final prefs = await _sp;
+      await prefs.setString(StorageKeys.lastUserId, userId);
+    } catch (e, st) {
+      AppLogger.error('LocalDataRepository', 'saveLastUserId failed', e, st);
+    }
+  }
+
   /// Clears ALL data that is synced to the cloud.
   /// Called when the user signs out to ensure their guest mode is a blank slate.
   Future<void> clearAllSyncableData() async {

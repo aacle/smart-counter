@@ -50,6 +50,15 @@ class CloudDataRepository implements DataRepository {
 
   // ── Helpers ────────────────────────────────────────────────────
 
+  /// Check if an error is a 401 (session expired/revoked). If so, notify
+  /// AuthService so the UI transitions to the unauthenticated state.
+  /// Should be called from every catch block in this class.
+  void _checkSessionExpired(Object error) {
+    if (error is AppwriteException && error.code == 401) {
+      AuthService.instance.notifySessionExpired();
+    }
+  }
+
   String get _db => AppwriteConstants.databaseId;
   String get _dailyStats => AppwriteConstants.dailyStatsCollection;
   String get _userSettings => AppwriteConstants.userSettingsCollection;
@@ -371,6 +380,7 @@ class CloudDataRepository implements DataRepository {
       // Reset profile streaks
       await _upsertUserProfile(currentStreak: 0, bestStreak: 0);
     } catch (e, st) {
+      _checkSessionExpired(e);
       AppLogger.error(_tag, 'clearInsightsData failed', e, st);
     }
   }
@@ -623,6 +633,123 @@ class CloudDataRepository implements DataRepository {
       return result.total + 1;
     } on AppwriteException catch (e, st) {
       AppLogger.error(_tag, 'getUserRank failed', e, st);
+      return 0;
+    }
+  }
+
+  // ── Today Leaderboard (reads daily_stats, not the stale snapshot) ──
+
+  /// Fetch the top users for a specific date, reading directly from the
+  /// `daily_stats` collection (the source of truth) instead of the
+  /// `today_counts` snapshot in `user_profiles`.
+  ///
+  /// This avoids the day-rollover bug where `today_counts` retains
+  /// yesterday's value for users who haven't opened the app yet.
+  /// `daily_stats` rows are date-partitioned, so yesterday's data can
+  /// never leak into today's query.
+  ///
+  /// Two queries are needed because Appwrite has no joins:
+  ///   1. `daily_stats` where `date == dateKey`, sorted by counts desc
+  ///   2. `user_profiles` batch-fetch for display names / avatars
+  Future<List<LeaderboardEntry>> getTopUsersToday({
+    int limit = 50,
+    String? dateKey,
+  }) async {
+    final date = dateKey ?? _todayKey();
+    final minMalasCount = kMalaSize * kMinStreakMalas; // 324
+
+    try {
+      // 1. Query daily_stats for the given date, sorted by counts desc
+      final statsQueries = <String>[
+        Query.equal('date', date),
+        Query.greaterThan('counts', minMalasCount - 1),
+        Query.orderDesc('counts'),
+        Query.limit(limit),
+      ];
+
+      final statsResult = await _databases.listDocuments(
+        databaseId: _db,
+        collectionId: _dailyStats,
+        queries: statsQueries,
+      );
+
+      if (statsResult.documents.isEmpty) return [];
+
+      // 2. Batch-fetch user_profiles for display info (name, avatar, totals)
+      final userIds = statsResult.documents
+          .map((d) => d.data['user_id'] as String?)
+          .whereType<String>()
+          .toList();
+
+      final profileMap = <String, Map<String, dynamic>>{};
+      if (userIds.isNotEmpty) {
+        try {
+          final profileResult = await _databases.listDocuments(
+            databaseId: _db,
+            collectionId: _userProfiles,
+            queries: [
+              Query.equal('user_id', userIds),
+              Query.limit(userIds.length),
+            ],
+          );
+          for (final doc in profileResult.documents) {
+            final uid = doc.data['user_id'] as String?;
+            if (uid != null) profileMap[uid] = doc.data;
+          }
+        } on AppwriteException catch (e) {
+          // Non-fatal — entries will show as "Anonymous" if profiles
+          // can't be fetched.
+          AppLogger.error(_tag, 'Profile batch-fetch failed', e);
+        }
+      }
+
+      // 3. Merge: daily_stats (counts) + user_profiles (display info)
+      return statsResult.documents.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final doc = entry.value;
+        final userId = doc.data['user_id'] as String? ?? '';
+        final profile = profileMap[userId] ?? <String, dynamic>{};
+
+        return LeaderboardEntry(
+          userId: userId,
+          displayName:
+              profile['display_name'] as String? ?? 'Anonymous',
+          avatarUrl: profile['avatar_url'] as String?,
+          totalCounts: profile['total_counts'] as int? ?? 0,
+          totalMalas: profile['total_malas'] as int? ?? 0,
+          currentStreak: profile['current_streak'] as int? ?? 0,
+          todayCounts: doc.data['counts'] as int? ?? 0,
+          rank: idx + 1,
+        );
+      }).toList();
+    } on AppwriteException catch (e, st) {
+      AppLogger.error(_tag, 'getTopUsersToday failed', e, st);
+      return [];
+    }
+  }
+
+  /// Get the current user's rank for a specific date, reading from
+  /// `daily_stats` (not the stale `today_counts` snapshot).
+  Future<int> getUserRankToday({
+    required int todayCounts,
+    String? dateKey,
+  }) async {
+    final date = dateKey ?? _todayKey();
+
+    try {
+      final queries = <String>[
+        Query.equal('date', date),
+        Query.greaterThan('counts', todayCounts),
+        Query.limit(1),
+      ];
+      final result = await _databases.listDocuments(
+        databaseId: _db,
+        collectionId: _dailyStats,
+        queries: queries,
+      );
+      return result.total + 1;
+    } on AppwriteException catch (e, st) {
+      AppLogger.error(_tag, 'getUserRankToday failed', e, st);
       return 0;
     }
   }

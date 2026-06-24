@@ -97,6 +97,16 @@ class SyncService {
           .get()
           .timeout(const Duration(seconds: 10));
       return true;
+    } on AppwriteException catch (e) {
+      if (e.code == 401) {
+        // Session was revoked (e.g. logged in on another device with
+        // max sessions = 1). Don't just treat this as "unreachable" —
+        // the session is gone, the user needs to re-authenticate.
+        AuthService.instance.notifySessionExpired();
+        return false;
+      }
+      AppLogger.info(_tag, 'Cloud unreachable, skipping sync: $e');
+      return false;
     } catch (e) {
       AppLogger.info(_tag, 'Cloud unreachable, skipping sync: $e');
       return false;
@@ -121,6 +131,8 @@ class SyncService {
     _isSyncing = true;
     _emit(const SyncResult(status: SyncStatus.syncing));
 
+    final local = LocalDataRepository.instance;
+
     try {
       // Verify cloud reachability before doing any work.
       //
@@ -134,8 +146,6 @@ class SyncService {
         _emit(result);
         return result;
       }
-
-      final local = LocalDataRepository.instance;
 
       // ── 1. Sync daily stats (per-day max-wins merge) ──────────
       final mergeResult = await _syncDailyStats(local, cloudRepo);

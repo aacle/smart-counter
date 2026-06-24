@@ -1,5 +1,6 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../../data/local_data_repository.dart';
 import '../auth_service.dart';
 import '../domain/app_user.dart';
@@ -55,7 +56,23 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
 
-  AuthNotifier(this._authService) : super(const AuthState());
+  /// Called when sign-in discovers local data from a different user.
+  /// The UI sets this before calling [signInWithGoogle] to show a confirmation
+  /// dialog. Returns `true` to wipe the stale data, `false` to keep it.
+  /// If unset, defaults to wiping (safe).
+  Future<bool> Function()? onConfirmCrossUserDataWipe;
+
+  AuthNotifier(this._authService) : super(const AuthState()) {
+    // When the session is revoked server-side (e.g. another device logged
+    // in with max sessions = 1), any Appwrite API call returns 401 and
+    // triggers this callback — transitions the UI to unauthenticated and
+    // clears local state so the app doesn't hold stale user data.
+    _authService.onSessionExpired = () {
+      LocalDataRepository.instance.clearAllSyncableData();
+      PaintingBinding.instance.imageCache.clear();
+      state = const AuthState(status: AuthStatus.unauthenticated);
+    };
+  }
 
   /// Called once at app startup to silently check for an existing session.
   Future<void> restoreSession() async {
@@ -71,6 +88,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     final user = await _authService.restoreSession();
     if (user != null) {
+      // Tag that this user's data is in local storage. Since restoreSession
+      // runs silently at app start (no user interaction), cross-user data
+      // can't occur here — the session can only be restored for the same user.
+      await LocalDataRepository.instance.saveLastUserId(user.id);
       state = AuthState(
         status: AuthStatus.authenticated,
         user: user,
@@ -86,6 +107,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     final user = await _authService.signInWithGoogle();
     if (user != null) {
+      final localRepo = LocalDataRepository.instance;
+
+      // Detect stale local data from a different user — critical guard
+      // against leaderboard corruption when devices are shared.
+      final lastUserId = await localRepo.loadLastUserId();
+      final isCrossUser = lastUserId != null && lastUserId != user.id;
+
+      if (isCrossUser) {
+        final shouldWipe =
+            await onConfirmCrossUserDataWipe?.call() ?? false;
+        if (shouldWipe) {
+          await localRepo.clearAllSyncableData();
+          AppLogger.info(
+            'AuthNotifier',
+            'User confirmed — wiped stale local data from '
+            'previous user $lastUserId',
+          );
+        } else {
+          // User declined to wipe stale data — abort sign-in to protect
+          // the leaderboard from cross-user contamination.
+          AppLogger.info(
+            'AuthNotifier',
+            'User declined wipe — sign-in aborted',
+          );
+          state = const AuthState(status: AuthStatus.unauthenticated);
+          return false;
+        }
+      }
+
+      // Tag local data as belonging to this user going forward.
+      await localRepo.saveLastUserId(user.id);
+
       state = AuthState(
         status: AuthStatus.authenticated,
         user: user,
