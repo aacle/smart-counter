@@ -92,16 +92,27 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       final user = authState.user!;
       final cloudRepo = CloudDataRepository.forUser(user.id);
 
-      final users = await cloudRepo.getTopUsers(
-        limit: 50,
-        sortBy: _sortBy(cat),
-      );
+      // The "Today" category reads from daily_stats (date-partitioned source
+      // of truth) instead of the today_counts snapshot in user_profiles,
+      // which goes stale at day rollover for users who haven't opened the app.
+      final List<LeaderboardEntry> users;
+      final int rank;
 
-      final currentUserCount = _getUserCount(cat);
-      final rank = await cloudRepo.getUserRank(
-        totalCounts: currentUserCount,
-        sortBy: _sortBy(cat),
-      );
+      if (cat == LeaderboardCategory.todayCounts) {
+        users = await cloudRepo.getTopUsersToday(limit: 50);
+        final currentUserCount = _getTodayCounts();
+        rank = await cloudRepo.getUserRankToday(todayCounts: currentUserCount);
+      } else {
+        users = await cloudRepo.getTopUsers(
+          limit: 50,
+          sortBy: _sortBy(cat),
+        );
+        final currentUserCount = _getUserCount(cat);
+        rank = await cloudRepo.getUserRank(
+          totalCounts: currentUserCount,
+          sortBy: _sortBy(cat),
+        );
+      }
 
       final currentUserEntry = LeaderboardEntry(
         userId: user.id,

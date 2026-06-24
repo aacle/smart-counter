@@ -106,25 +106,37 @@ jobs:
           name: android-aab
           path: artifacts/android
 
-      - name: Check if release already exists
-        id: release_check
+      - name: Publish GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "${{ github.ref_name }}" > /dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Release for tag '${{ github.ref_name }}' already exists; skipping asset upload."
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          APK="artifacts/android/app-release.apk"
+          AAB="artifacts/android/app-release.aab"
+
+          if [ ! -f "$APK" ] || [ ! -f "$AAB" ]; then
+            echo "Missing build artifacts: APK=$APK AAB=$AAB"
+            ls -la artifacts/android/ || true
+            exit 1
           fi
 
-      - name: Create GitHub Release
-        if: steps.release_check.outputs.exists != 'true'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            artifacts/android/app-release.apk
-            artifacts/android/app-release.aab
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # If a previous run created a release without assets (422 immutable),
+          # delete the broken release so we can recreate with assets attached.
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            ASSET_COUNT=$(gh release view "$TAG" --json assets -q '.assets | length')
+            if [ "$ASSET_COUNT" -gt 0 ]; then
+              echo "Release $TAG already published with $ASSET_COUNT asset(s); skipping."
+              exit 0
+            fi
+            echo "Release $TAG exists without assets; deleting broken release..."
+            gh release delete "$TAG" --yes
+          fi
+
+          # Attach assets during create — avoids immutable-release 422 when
+          # publish happens before upload (softprops/action-gh-release@v1 bug).
+          gh release create "$TAG" \
+            "$APK" \
+            "$AAB" \
+            --title "$TAG" \
+            --generate-notes
